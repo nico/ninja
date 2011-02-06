@@ -1,0 +1,24 @@
+<map id="G" name="G">
+<area shape="rect" id="node3" href="$graph_8h.html" title="graph.h" alt="" coords="903,83,967,112"/>
+<area shape="rect" id="node31" href="$state_8h.html" title="state.h" alt="" coords="652,83,713,112"/>
+<area shape="rect" id="node55" href="$eval__env_8cc.html" title="eval_env.cc" alt="" coords="991,83,1081,112"/>
+<area shape="rect" id="node5" href="$build_8cc.html" title="build.cc" alt="" coords="463,160,529,189"/>
+<area shape="rect" id="node7" href="$build__log_8cc.html" title="build_log.cc" alt="" coords="1228,160,1319,189"/>
+<area shape="rect" id="node9" href="$build__test_8cc.html" title="build_test.cc" alt="" coords="660,237,756,267"/>
+<area shape="rect" id="node11" href="$clean_8cc.html" title="clean.cc" alt="" coords="553,160,623,189"/>
+<area shape="rect" id="node13" href="$graph_8cc.html" title="graph.cc" alt="" coords="647,160,719,189"/>
+<area shape="rect" id="node15" href="$graph__test_8cc.html" title="graph_test.cc" alt="" coords="848,237,949,267"/>
+<area shape="rect" id="node17" href="$graphviz_8cc.html" title="graphviz.cc" alt="" coords="1343,160,1431,189"/>
+<area shape="rect" id="node19" href="$ninja_8cc.html" title="ninja.cc" alt="" coords="743,160,809,189"/>
+<area shape="rect" id="node21" href="$ninja__test_8cc.html" title="ninja_test.cc" alt="" coords="1108,237,1204,267"/>
+<area shape="rect" id="node23" href="$parsers_8cc.html" title="parsers.cc" alt="" coords="833,160,916,189"/>
+<area shape="rect" id="node25" href="$parsers__test_8cc.html" title="parsers_test.cc" alt="" coords="940,160,1052,189"/>
+<area shape="rect" id="node27" href="$stat__cache_8cc.html" title="stat_cache.cc" alt="" coords="1455,160,1559,189"/>
+<area shape="rect" id="node29" href="$state_8cc.html" title="state.cc" alt="" coords="369,160,439,189"/>
+<area shape="rect" id="node34" href="$test_8h.html" title="test.h" alt="" coords="292,160,345,189"/>
+<area shape="rect" id="node36" href="$build__log__test_8cc.html" title="build_log_test.cc" alt="" coords="483,237,603,267"/>
+<area shape="rect" id="node39" href="$clean__test_8cc.html" title="clean_test.cc" alt="" coords="5,237,104,267"/>
+<area shape="rect" id="node43" href="$subprocess__test_8cc.html" title="subprocess_test.cc" alt="" coords="128,237,264,267"/>
+<area shape="rect" id="node45" href="$test_8cc.html" title="test.cc" alt="" coords="288,237,349,267"/>
+<area shape="rect" id="node47" href="$util__test_8cc.html" title="util_test.cc" alt="" coords="373,237,459,267"/>
+</map>

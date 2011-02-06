@@ -1,0 +1,15 @@
+<map id="G" name="G">
+<area shape="rect" id="node3" href="$build_8cc.html" title="build.cc" alt="" coords="5,83,72,112"/>
+<area shape="rect" id="node5" href="$build__log_8cc.html" title="build_log.cc" alt="" coords="96,83,187,112"/>
+<area shape="rect" id="node7" href="$build__test_8cc.html" title="build_test.cc" alt="" coords="211,83,307,112"/>
+<area shape="rect" id="node9" href="$clean_8cc.html" title="clean.cc" alt="" coords="331,83,400,112"/>
+<area shape="rect" id="node11" href="$graph_8cc.html" title="graph.cc" alt="" coords="424,83,496,112"/>
+<area shape="rect" id="node13" href="$graph__test_8cc.html" title="graph_test.cc" alt="" coords="520,83,621,112"/>
+<area shape="rect" id="node15" href="$graphviz_8cc.html" title="graphviz.cc" alt="" coords="645,83,733,112"/>
+<area shape="rect" id="node17" href="$ninja_8cc.html" title="ninja.cc" alt="" coords="757,83,824,112"/>
+<area shape="rect" id="node19" href="$ninja__test_8cc.html" title="ninja_test.cc" alt="" coords="848,83,944,112"/>
+<area shape="rect" id="node21" href="$parsers_8cc.html" title="parsers.cc" alt="" coords="968,83,1051,112"/>
+<area shape="rect" id="node23" href="$parsers__test_8cc.html" title="parsers_test.cc" alt="" coords="1075,83,1187,112"/>
+<area shape="rect" id="node25" href="$stat__cache_8cc.html" title="stat_cache.cc" alt="" coords="1211,83,1315,112"/>
+<area shape="rect" id="node27" href="$state_8cc.html" title="state.cc" alt="" coords="1339,83,1408,112"/>
+</map>

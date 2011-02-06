@@ -1,0 +1,404 @@
+var NAVTREE =
+[
+  [ "Ninja", "index.html", [
+    [ "Main Page", "index.html", null ],
+    [ "Class List", "annotated.html", [
+      [ "BindingEnv", "structBindingEnv.html", null ],
+      [ "BuildConfig", "structBuildConfig.html", null ],
+      [ "Builder", "structBuilder.html", null ],
+      [ "BuildLog", "structBuildLog.html", null ],
+      [ "BuildLogTest", "structBuildLogTest.html", null ],
+      [ "BuildStatus", "structBuildStatus.html", null ],
+      [ "BuildTest", "structBuildTest.html", null ],
+      [ "Cleaner", "classCleaner.html", null ],
+      [ "CleanTest", "structCleanTest.html", null ],
+      [ "CommandRunner", "structCommandRunner.html", null ],
+      [ "DiskInterface", "structDiskInterface.html", null ],
+      [ "DiskInterfaceTest", "classDiskInterfaceTest.html", null ],
+      [ "DryRunCommandRunner", "structDryRunCommandRunner.html", null ],
+      [ "Edge", "structEdge.html", null ],
+      [ "EdgeEnv", "structEdgeEnv.html", null ],
+      [ "VirtualFileSystem::Entry", "structVirtualFileSystem_1_1Entry.html", null ],
+      [ "Env", "structEnv.html", null ],
+      [ "EvalString", "structEvalString.html", null ],
+      [ "ManifestParser::FileReader", "structManifestParser_1_1FileReader.html", null ],
+      [ "FileStat", "structFileStat.html", null ],
+      [ "GETOPT_LONG_OPTION_T", "structGETOPT__LONG__OPTION__T.html", null ],
+      [ "GraphTest", "structGraphTest.html", null ],
+      [ "GraphViz", "structGraphViz.html", null ],
+      [ "__gnu_cxx::hash< std::string >", "struct____gnu__cxx_1_1hash_3_01std_1_1string_01_4.html", null ],
+      [ "BuildLog::LogEntry", "structBuildLog_1_1LogEntry.html", null ],
+      [ "MakefileParser", "structMakefileParser.html", null ],
+      [ "ManifestParser", "structManifestParser.html", null ],
+      [ "Node", "structNode.html", null ],
+      [ "ParserTest", "structParserTest.html", null ],
+      [ "Plan", "structPlan.html", null ],
+      [ "PlanTest", "structPlanTest.html", null ],
+      [ "RealCommandRunner", "structRealCommandRunner.html", null ],
+      [ "RealDiskInterface", "structRealDiskInterface.html", null ],
+      [ "Rule", "structRule.html", null ],
+      [ "StatCache", "structStatCache.html", null ],
+      [ "State", "structState.html", null ],
+      [ "StateTestWithBuiltinRules", "structStateTestWithBuiltinRules.html", null ],
+      [ "StatTest", "structStatTest.html", null ],
+      [ "Subprocess", "structSubprocess.html", null ],
+      [ "SubprocessSet", "structSubprocessSet.html", null ],
+      [ "TestEnv", "structTestEnv.html", null ],
+      [ "Token", "structToken.html", null ],
+      [ "Tokenizer", "structTokenizer.html", null ],
+      [ "VirtualFileSystem", "structVirtualFileSystem.html", null ]
+    ] ],
+    [ "Class Index", "classes.html", null ],
+    [ "Class Hierarchy", "hierarchy.html", [
+      [ "BuildConfig", "structBuildConfig.html", null ],
+      [ "Builder", "structBuilder.html", null ],
+      [ "BuildLog", "structBuildLog.html", null ],
+      [ "BuildStatus", "structBuildStatus.html", null ],
+      [ "Cleaner", "classCleaner.html", null ],
+      [ "CommandRunner", "structCommandRunner.html", [
+        [ "BuildTest", "structBuildTest.html", null ],
+        [ "DryRunCommandRunner", "structDryRunCommandRunner.html", null ],
+        [ "RealCommandRunner", "structRealCommandRunner.html", null ]
+      ] ],
+      [ "DiskInterface", "structDiskInterface.html", [
+        [ "RealDiskInterface", "structRealDiskInterface.html", null ],
+        [ "StatTest", "structStatTest.html", null ],
+        [ "VirtualFileSystem", "structVirtualFileSystem.html", null ]
+      ] ],
+      [ "DiskInterfaceTest", "classDiskInterfaceTest.html", null ],
+      [ "Edge", "structEdge.html", null ],
+      [ "VirtualFileSystem::Entry", "structVirtualFileSystem_1_1Entry.html", null ],
+      [ "Env", "structEnv.html", [
+        [ "BindingEnv", "structBindingEnv.html", null ],
+        [ "EdgeEnv", "structEdgeEnv.html", null ],
+        [ "TestEnv", "structTestEnv.html", null ]
+      ] ],
+      [ "EvalString", "structEvalString.html", null ],
+      [ "ManifestParser::FileReader", "structManifestParser_1_1FileReader.html", [
+        [ "ParserTest", "structParserTest.html", null ]
+      ] ],
+      [ "FileStat", "structFileStat.html", null ],
+      [ "GETOPT_LONG_OPTION_T", "structGETOPT__LONG__OPTION__T.html", null ],
+      [ "GraphViz", "structGraphViz.html", null ],
+      [ "__gnu_cxx::hash< std::string >", "struct____gnu__cxx_1_1hash_3_01std_1_1string_01_4.html", null ],
+      [ "BuildLog::LogEntry", "structBuildLog_1_1LogEntry.html", null ],
+      [ "MakefileParser", "structMakefileParser.html", null ],
+      [ "ManifestParser", "structManifestParser.html", null ],
+      [ "Node", "structNode.html", null ],
+      [ "Plan", "structPlan.html", null ],
+      [ "Rule", "structRule.html", null ],
+      [ "StatCache", "structStatCache.html", null ],
+      [ "State", "structState.html", null ],
+      [ "StateTestWithBuiltinRules", "structStateTestWithBuiltinRules.html", [
+        [ "BuildLogTest", "structBuildLogTest.html", null ],
+        [ "BuildTest", "structBuildTest.html", null ],
+        [ "CleanTest", "structCleanTest.html", null ],
+        [ "GraphTest", "structGraphTest.html", null ],
+        [ "PlanTest", "structPlanTest.html", null ],
+        [ "StatTest", "structStatTest.html", null ]
+      ] ],
+      [ "Subprocess", "structSubprocess.html", null ],
+      [ "SubprocessSet", "structSubprocessSet.html", null ],
+      [ "Token", "structToken.html", null ],
+      [ "Tokenizer", "structTokenizer.html", null ]
+    ] ],
+    [ "Class Members", "functions.html", null ],
+    [ "Namespace List", "namespaces.html", [
+      [ "__gnu_cxx", "namespace____gnu__cxx.html", null ]
+    ] ],
+    [ "File List", "files.html", [
+      [ "/home/evanm/projects/ninja/build/doxygen_mainpage", "doxygen__mainpage.html", null ],
+      [ "browse.cc", "browse_8cc.html", null ],
+      [ "browse.h", "browse_8h.html", null ],
+      [ "build.cc", "build_8cc.html", null ],
+      [ "build.h", "build_8h.html", null ],
+      [ "build_log.cc", "build__log_8cc.html", null ],
+      [ "build_log.h", "build__log_8h.html", null ],
+      [ "build_log_test.cc", "build__log__test_8cc.html", null ],
+      [ "build_test.cc", "build__test_8cc.html", null ],
+      [ "clean.cc", "clean_8cc.html", null ],
+      [ "clean.h", "clean_8h.html", null ],
+      [ "clean_test.cc", "clean__test_8cc.html", null ],
+      [ "disk_interface.cc", "disk__interface_8cc.html", null ],
+      [ "disk_interface.h", "disk__interface_8h.html", null ],
+      [ "eval_env.cc", "eval__env_8cc.html", null ],
+      [ "eval_env.h", "eval__env_8h.html", null ],
+      [ "getopt.h", "getopt_8h.html", null ],
+      [ "graph.cc", "graph_8cc.html", null ],
+      [ "graph.h", "graph_8h.html", null ],
+      [ "graph_test.cc", "graph__test_8cc.html", null ],
+      [ "graphviz.cc", "graphviz_8cc.html", null ],
+      [ "graphviz.h", "graphviz_8h.html", null ],
+      [ "hash_map.h", "hash__map_8h.html", null ],
+      [ "ninja.cc", "ninja_8cc.html", null ],
+      [ "ninja_test.cc", "ninja__test_8cc.html", null ],
+      [ "parser_perftest.cc", "parser__perftest_8cc.html", null ],
+      [ "parsers.cc", "parsers_8cc.html", null ],
+      [ "parsers.h", "parsers_8h.html", null ],
+      [ "parsers_test.cc", "parsers__test_8cc.html", null ],
+      [ "stat_cache.cc", "stat__cache_8cc.html", null ],
+      [ "stat_cache.h", "stat__cache_8h.html", null ],
+      [ "state.cc", "state_8cc.html", null ],
+      [ "state.h", "state_8h.html", null ],
+      [ "subprocess-win32.cc", "subprocess-win32_8cc.html", null ],
+      [ "subprocess.cc", "subprocess_8cc.html", null ],
+      [ "subprocess.h", "subprocess_8h.html", null ],
+      [ "subprocess_test.cc", "subprocess__test_8cc.html", null ],
+      [ "test.cc", "test_8cc.html", null ],
+      [ "test.h", "test_8h.html", null ],
+      [ "util.cc", "util_8cc.html", null ],
+      [ "util.h", "util_8h.html", null ],
+      [ "util_test.cc", "util__test_8cc.html", null ]
+    ] ],
+    [ "Directories", "dirs.html", [
+      [ "build", "dir_92c20f69771a1a746da9fb8585a4065a.html", null ]
+    ] ],
+    [ "File Members", "globals.html", null ]
+  ] ]
+];
+
+function createIndent(o,domNode,node,level)
+{
+  if (node.parentNode && node.parentNode.parentNode)
+  {
+    createIndent(o,domNode,node.parentNode,level+1);
+  }
+  var imgNode = document.createElement("img");
+  if (level==0 && node.childrenData)
+  {
+    node.plus_img = imgNode;
+    node.expandToggle = document.createElement("a");
+    node.expandToggle.href = "javascript:void(0)";
+    node.expandToggle.onclick = function() 
+    {
+      if (node.expanded) 
+      {
+        $(node.getChildrenUL()).slideUp("fast");
+        if (node.isLast)
+        {
+          node.plus_img.src = node.relpath+"ftv2plastnode.png";
+        }
+        else
+        {
+          node.plus_img.src = node.relpath+"ftv2pnode.png";
+        }
+        node.expanded = false;
+      } 
+      else 
+      {
+        expandNode(o, node, false);
+      }
+    }
+    node.expandToggle.appendChild(imgNode);
+    domNode.appendChild(node.expandToggle);
+  }
+  else
+  {
+    domNode.appendChild(imgNode);
+  }
+  if (level==0)
+  {
+    if (node.isLast)
+    {
+      if (node.childrenData)
+      {
+        imgNode.src = node.relpath+"ftv2plastnode.png";
+      }
+      else
+      {
+        imgNode.src = node.relpath+"ftv2lastnode.png";
+        domNode.appendChild(imgNode);
+      }
+    }
+    else
+    {
+      if (node.childrenData)
+      {
+        imgNode.src = node.relpath+"ftv2pnode.png";
+      }
+      else
+      {
+        imgNode.src = node.relpath+"ftv2node.png";
+        domNode.appendChild(imgNode);
+      }
+    }
+  }
+  else
+  {
+    if (node.isLast)
+    {
+      imgNode.src = node.relpath+"ftv2blank.png";
+    }
+    else
+    {
+      imgNode.src = node.relpath+"ftv2vertline.png";
+    }
+  }
+  imgNode.border = "0";
+}
+
+function newNode(o, po, text, link, childrenData, lastNode)
+{
+  var node = new Object();
+  node.children = Array();
+  node.childrenData = childrenData;
+  node.depth = po.depth + 1;
+  node.relpath = po.relpath;
+  node.isLast = lastNode;
+
+  node.li = document.createElement("li");
+  po.getChildrenUL().appendChild(node.li);
+  node.parentNode = po;
+
+  node.itemDiv = document.createElement("div");
+  node.itemDiv.className = "item";
+
+  node.labelSpan = document.createElement("span");
+  node.labelSpan.className = "label";
+
+  createIndent(o,node.itemDiv,node,0);
+  node.itemDiv.appendChild(node.labelSpan);
+  node.li.appendChild(node.itemDiv);
+
+  var a = document.createElement("a");
+  node.labelSpan.appendChild(a);
+  node.label = document.createTextNode(text);
+  a.appendChild(node.label);
+  if (link) 
+  {
+    a.href = node.relpath+link;
+  } 
+  else 
+  {
+    if (childrenData != null) 
+    {
+      a.className = "nolink";
+      a.href = "javascript:void(0)";
+      a.onclick = node.expandToggle.onclick;
+      node.expanded = false;
+    }
+  }
+
+  node.childrenUL = null;
+  node.getChildrenUL = function() 
+  {
+    if (!node.childrenUL) 
+    {
+      node.childrenUL = document.createElement("ul");
+      node.childrenUL.className = "children_ul";
+      node.childrenUL.style.display = "none";
+      node.li.appendChild(node.childrenUL);
+    }
+    return node.childrenUL;
+  };
+
+  return node;
+}
+
+function showRoot()
+{
+  var headerHeight = $("#top").height();
+  var footerHeight = $("#nav-path").height();
+  var windowHeight = $(window).height() - headerHeight - footerHeight;
+  navtree.scrollTo('#selected',0,{offset:-windowHeight/2});
+}
+
+function expandNode(o, node, imm)
+{
+  if (node.childrenData && !node.expanded) 
+  {
+    if (!node.childrenVisited) 
+    {
+      getNode(o, node);
+    }
+    if (imm)
+    {
+      $(node.getChildrenUL()).show();
+    } 
+    else 
+    {
+      $(node.getChildrenUL()).slideDown("fast",showRoot);
+    }
+    if (node.isLast)
+    {
+      node.plus_img.src = node.relpath+"ftv2mlastnode.png";
+    }
+    else
+    {
+      node.plus_img.src = node.relpath+"ftv2mnode.png";
+    }
+    node.expanded = true;
+  }
+}
+
+function getNode(o, po)
+{
+  po.childrenVisited = true;
+  var l = po.childrenData.length-1;
+  for (var i in po.childrenData) 
+  {
+    var nodeData = po.childrenData[i];
+    po.children[i] = newNode(o, po, nodeData[0], nodeData[1], nodeData[2],
+        i==l);
+  }
+}
+
+function findNavTreePage(url, data)
+{
+  var nodes = data;
+  var result = null;
+  for (var i in nodes) 
+  {
+    var d = nodes[i];
+    if (d[1] == url) 
+    {
+      return new Array(i);
+    }
+    else if (d[2] != null) // array of children
+    {
+      result = findNavTreePage(url, d[2]);
+      if (result != null) 
+      {
+        return (new Array(i).concat(result));
+      }
+    }
+  }
+  return null;
+}
+
+function initNavTree(toroot,relpath)
+{
+  var o = new Object();
+  o.toroot = toroot;
+  o.node = new Object();
+  o.node.li = document.getElementById("nav-tree-contents");
+  o.node.childrenData = NAVTREE;
+  o.node.children = new Array();
+  o.node.childrenUL = document.createElement("ul");
+  o.node.getChildrenUL = function() { return o.node.childrenUL; };
+  o.node.li.appendChild(o.node.childrenUL);
+  o.node.depth = 0;
+  o.node.relpath = relpath;
+
+  getNode(o, o.node);
+
+  o.breadcrumbs = findNavTreePage(toroot, NAVTREE);
+  if (o.breadcrumbs == null)
+  {
+    o.breadcrumbs = findNavTreePage("index.html",NAVTREE);
+  }
+  if (o.breadcrumbs != null && o.breadcrumbs.length>0)
+  {
+    var p = o.node;
+    for (var i in o.breadcrumbs) 
+    {
+      var j = o.breadcrumbs[i];
+      p = p.children[j];
+      expandNode(o,p,true);
+    }
+    p.itemDiv.className = p.itemDiv.className + " selected";
+    p.itemDiv.id = "selected";
+    $(window).load(showRoot);
+  }
+}
+
