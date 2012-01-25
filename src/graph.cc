@@ -36,6 +36,8 @@ bool Edge::RecomputeDirty(State* state, DiskInterface* disk_interface,
   bool dirty = false;
   outputs_ready_ = true;
 
+string mostrecentmtime;
+
   if (!rule_->depfile().empty()) {
     if (!LoadDepFile(state, disk_interface, err))
       return false;
@@ -49,6 +51,7 @@ bool Edge::RecomputeDirty(State* state, DiskInterface* disk_interface,
         if (!edge->RecomputeDirty(state, disk_interface, err))
           return false;
       } else {
+if (!(*i)->exists()) printf("dirty: %d\n", !(*i)->exists());
         // This input has no in-edge; it is dirty if it is missing.
         (*i)->set_dirty(!(*i)->exists());
       }
@@ -64,10 +67,13 @@ bool Edge::RecomputeDirty(State* state, DiskInterface* disk_interface,
       // If a regular input is dirty (or missing), we're dirty.
       // Otherwise consider mtime.
       if ((*i)->dirty()) {
+printf("input %s dirty\n", (*i)->path().c_str());
         dirty = true;
       } else {
-        if ((*i)->mtime() > most_recent_input)
+        if ((*i)->mtime() > most_recent_input) {
+mostrecentmtime = (*i)->path();
           most_recent_input = (*i)->mtime();
+        }
       }
     }
   }
@@ -82,6 +88,7 @@ bool Edge::RecomputeDirty(State* state, DiskInterface* disk_interface,
          i != outputs_.end(); ++i) {
       (*i)->StatIfNecessary(disk_interface);
       if (RecomputeOutputDirty(build_log, most_recent_input, command, *i)) {
+printf("output %s dirty (%s)\n", (*i)->path().c_str(), mostrecentmtime.c_str());
         dirty = true;
         break;
       }
@@ -92,8 +99,10 @@ bool Edge::RecomputeDirty(State* state, DiskInterface* disk_interface,
   // their dirty state if necessary.
   for (vector<Node*>::iterator i = outputs_.begin(); i != outputs_.end(); ++i) {
     (*i)->StatIfNecessary(disk_interface);
-    if (dirty)
+    if (dirty) {
+printf("dirty dirty %s\n", (*i)->path().c_str());
       (*i)->MarkDirty();
+    }
   }
 
   // If we're dirty, our outputs are not ready.  (It's possible to be
@@ -117,8 +126,10 @@ bool Edge::RecomputeOutputDirty(BuildLog* build_log,
   BuildLog::LogEntry* entry = 0;
 
   // Dirty if we're missing the output.
-  if (!output->exists())
+  if (!output->exists()) {
+printf("output dirty because missing\n");
     return true;
+  }
 
   // Dirty if the output is older than the input.
   if (output->mtime() < most_recent_input) {
@@ -128,9 +139,12 @@ bool Edge::RecomputeOutputDirty(BuildLog* build_log,
     // considered dirty if an input was modified since the previous run.
     if (rule_->restat() && build_log &&
         (entry = build_log->LookupByOutput(output->path()))) {
-      if (entry->restat_mtime < most_recent_input)
+      if (entry->restat_mtime < most_recent_input) {
+printf("output dirty restat mtime\n");
         return true;
+      }
     } else {
+printf("output dirty mtime\n");
       return true;
     }
   }
@@ -140,8 +154,10 @@ bool Edge::RecomputeOutputDirty(BuildLog* build_log,
   // dirty.
   if (!rule_->generator() && build_log &&
       (entry || (entry = build_log->LookupByOutput(output->path())))) {
-    if (command != entry->command)
+    if (command != entry->command) {
+printf("output dirty command changed\n");
       return true;
+    }
   }
 
   return false;

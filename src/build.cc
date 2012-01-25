@@ -336,6 +336,7 @@ void Plan::CleanNode(BuildLog* build_log, Node* node) {
 
         if ((*ei)->RecomputeOutputDirty(build_log, most_recent_input, command,
                                         *ni)) {
+printf("markdirty\n");
           (*ni)->MarkDirty();
           all_outputs_clean = false;
         } else {
