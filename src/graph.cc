@@ -82,7 +82,7 @@ mostrecentmtime = (*i)->path();
   // date outputs, etc.  Visit all outputs and determine whether they're dirty.
   if (!dirty) {
     BuildLog* build_log = state ? state->build_log_ : 0;
-    string command = EvaluateCommand();
+    string command = EvaluateCommand(true);
 
     for (vector<Node*>::iterator i = outputs_.begin();
          i != outputs_.end(); ++i) {
@@ -220,9 +220,12 @@ string EdgeEnv::MakePathList(vector<Node*>::iterator begin,
   return result;
 }
 
-string Edge::EvaluateCommand() {
+string Edge::EvaluateCommand(bool incl_rsp_file) {
   EdgeEnv env(this);
-  return rule_->command().Evaluate(&env);
+  string command = rule_->command().Evaluate(&env);
+  if (incl_rsp_file && HasRspFile()) 
+    command += ";rspfile=" + GetRspFileContent();
+  return command;
 }
 
 string Edge::EvaluateDepFile() {
@@ -233,6 +236,20 @@ string Edge::EvaluateDepFile() {
 string Edge::GetDescription() {
   EdgeEnv env(this);
   return rule_->description().Evaluate(&env);
+}
+
+bool Edge::HasRspFile() {
+  return !rule_->rspfile().empty();
+}
+
+string Edge::GetRspFile() {
+  EdgeEnv env(this);
+  return rule_->rspfile().Evaluate(&env);
+}
+
+string Edge::GetRspFileContent() {
+  EdgeEnv env(this);
+  return rule_->rspfile_content().Evaluate(&env);
 }
 
 bool Edge::LoadDepFile(State* state, DiskInterface* disk_interface,

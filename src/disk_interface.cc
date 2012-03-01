@@ -19,7 +19,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #endif
 
@@ -28,7 +28,7 @@
 namespace {
 
 string DirName(const string& path) {
-#ifdef WIN32
+#ifdef _WIN32
   const char kPathSeparator = '\\';
 #else
   const char kPathSeparator = '/';
@@ -66,7 +66,13 @@ bool DiskInterface::MakeDirs(const string& path) {
 // RealDiskInterface -----------------------------------------------------------
 
 TimeStamp RealDiskInterface::Stat(const string& path) {
-#ifdef WIN32
+#ifdef _WIN32
+  // MSDN: "Naming Files, Paths, and Namespaces"
+  // http://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx
+  if (!path.empty() && path[0] != '\\' && path.size() > MAX_PATH) {
+    Error("Stat(%s): Filename longer than %i characters", path.c_str(), MAX_PATH);
+    return -1;
+  }
   WIN32_FILE_ATTRIBUTE_DATA attrs;
   if (!GetFileAttributesEx(path.c_str(), GetFileExInfoStandard, &attrs)) {
     DWORD err = GetLastError();
@@ -95,6 +101,26 @@ TimeStamp RealDiskInterface::Stat(const string& path) {
   }
   return st.st_mtime;
 #endif
+}
+
+bool RealDiskInterface::WriteFile(const string & path, const string & contents) {
+  FILE * fp = fopen(path.c_str(), "w");
+  if (fp == NULL) {
+    Error("WriteFile(%s): Unable to create file. %s", path.c_str(), strerror(errno));
+    return false;
+  }
+ 
+  if (fwrite(contents.data(), 1, contents.length(), fp) < contents.length())  {
+    Error("WriteFile(%s): Unable to write to the file. %s", path.c_str(), strerror(errno));
+    return false;
+  }
+
+  if (fclose(fp) == EOF) {
+    Error("WriteFile(%s): Unable to close the file. %s", path.c_str(), strerror(errno));
+    return false;
+  }
+
+  return true;
 }
 
 bool RealDiskInterface::MakeDir(const string& path) {

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -24,7 +25,7 @@
 #include <sys/sysinfo.h>
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 #include "getopt.h"
 #include <direct.h>
 #include <windows.h>
@@ -107,7 +108,7 @@ int GuessParallelism() {
              NULL, 0) < 0) {
     processors = 1;
   }
-#elif defined(WIN32)
+#elif defined(_WIN32)
   SYSTEM_INFO info;
   GetSystemInfo(&info);
   processors = info.dwNumberOfProcessors;
@@ -149,7 +150,12 @@ bool RebuildManifest(State* state, const BuildConfig& config,
 
   if (manifest_builder.AlreadyUpToDate())
     return false;  // Not an error, but we didn't rebuild.
-  return manifest_builder.Build(err);
+  if (!manifest_builder.Build(err))
+    return false;
+
+  // The manifest was only rebuilt if it is now dirty (it may have been cleaned
+  // by a restat).
+  return node->dirty();
 }
 
 bool CollectTargetsFromArgs(State* state, int argc, char* argv[],
@@ -224,24 +230,7 @@ int ToolQuery(Globals* globals, int argc, char* argv[]) {
   }
   for (int i = 0; i < argc; ++i) {
     Node* node = globals->state->LookupNode(argv[i]);
-    if (node) {
-      printf("%s:\n", argv[i]);
-      if (node->in_edge()) {
-        printf("  input: %s\n", node->in_edge()->rule_->name().c_str());
-        for (vector<Node*>::iterator in = node->in_edge()->inputs_.begin();
-             in != node->in_edge()->inputs_.end(); ++in) {
-          printf("    %s\n", (*in)->path().c_str());
-        }
-      }
-      for (vector<Edge*>::const_iterator edge = node->out_edges().begin();
-           edge != node->out_edges().end(); ++edge) {
-        printf("  output: %s\n", (*edge)->rule_->name().c_str());
-        for (vector<Node*>::iterator out = (*edge)->outputs_.begin();
-             out != (*edge)->outputs_.end(); ++out) {
-          printf("    %s\n", (*out)->path().c_str());
-        }
-      }
-    } else {
+    if (!node) {
       Node* suggestion = globals->state->SpellcheckNode(argv[i]);
       if (suggestion) {
         printf("%s unknown, did you mean %s?\n",
@@ -251,11 +240,32 @@ int ToolQuery(Globals* globals, int argc, char* argv[]) {
       }
       return 1;
     }
+
+    printf("%s:\n", argv[i]);
+    if (Edge* edge = node->in_edge()) {
+      printf("  input: %s\n", edge->rule_->name().c_str());
+      for (int in = 0; in < (int)edge->inputs_.size(); in++) {
+        const char* label = "";
+        if (edge->is_implicit(in))
+          label = "| ";
+        else if (edge->is_order_only(in))
+          label = "|| ";
+        printf("    %s%s\n", label, edge->inputs_[in]->path().c_str());
+      }
+    }
+    printf("  outputs:\n");
+    for (vector<Edge*>::const_iterator edge = node->out_edges().begin();
+         edge != node->out_edges().end(); ++edge) {
+      for (vector<Node*>::iterator out = (*edge)->outputs_.begin();
+           out != (*edge)->outputs_.end(); ++out) {
+        printf("    %s\n", (*out)->path().c_str());
+      }
+    }
   }
   return 0;
 }
 
-#if !defined(WIN32) && !defined(NINJA_BOOTSTRAP)
+#if !defined(_WIN32) && !defined(NINJA_BOOTSTRAP)
 int ToolBrowse(Globals* globals, int argc, char* argv[]) {
   if (argc < 1) {
     Error("expected a target to browse");
@@ -265,7 +275,7 @@ int ToolBrowse(Globals* globals, int argc, char* argv[]) {
   // If we get here, the browse failed.
   return 1;
 }
-#endif  // WIN32
+#endif  // _WIN32
 
 int ToolTargetsList(const vector<Node*>& nodes, int depth, int indent) {
   for (vector<Node*>::const_iterator n = nodes.begin();
@@ -468,6 +478,31 @@ int ToolClean(Globals* globals, int argc, char* argv[]) {
   }
 }
 
+void ToolUrtle() {
+  // RLE encoded.
+  const char* urtle =
+" 13 ,3;2!2;\n8 ,;<11!;\n5 `'<10!(2`'2!\n11 ,6;, `\\. `\\9 .,c13$ec,.\n6 "
+",2;11!>; `. ,;!2> .e8$2\".2 \"?7$e.\n <:<8!'` 2.3,.2` ,3!' ;,(?7\";2!2'<"
+"; `?6$PF ,;,\n2 `'4!8;<!3'`2 3! ;,`'2`2'3!;4!`2.`!;2 3,2 .<!2'`).\n5 3`5"
+"'2`9 `!2 `4!><3;5! J2$b,`!>;2!:2!`,d?b`!>\n26 `'-;,(<9!> $F3 )3.:!.2 d\""
+"2 ) !>\n30 7`2'<3!- \"=-='5 .2 `2-=\",!>\n25 .ze9$er2 .,cd16$bc.'\n22 .e"
+"14$,26$.\n21 z45$c .\n20 J50$c\n20 14$P\"`?34$b\n20 14$ dbc `2\"?22$?7$c"
+"\n20 ?18$c.6 4\"8?4\" c8$P\n9 .2,.8 \"20$c.3 ._14 J9$\n .2,2c9$bec,.2 `?"
+"21$c.3`4%,3%,3 c8$P\"\n22$c2 2\"?21$bc2,.2` .2,c7$P2\",cb\n23$b bc,.2\"2"
+"?14$2F2\"5?2\",J5$P\" ,zd3$\n24$ ?$3?%3 `2\"2?12$bcucd3$P3\"2 2=7$\n23$P"
+"\" ,3;<5!>2;,. `4\"6?2\"2 ,9;, `\"?2$\n19$P2\",;23!6;17!;2 \"\n";
+  int count = 0;
+  for (const char* p = urtle; *p; p++) {
+    if ('0' <= *p && *p <= '9') {
+      count = count*10 + *p - '0';
+    } else {
+      for (int i = 0; i < std::max(count, 1); ++i)
+        printf("%c", *p);
+      count = 0;
+    }
+  }
+}
+
 int RunTool(const string& tool, Globals* globals, int argc, char** argv) {
   typedef int (*ToolFunc)(Globals*, int, char**);
   struct Tool {
@@ -475,7 +510,7 @@ int RunTool(const string& tool, Globals* globals, int argc, char** argv) {
     const char* desc;
     ToolFunc func;
   } tools[] = {
-#if !defined(WIN32) && !defined(NINJA_BOOTSTRAP)
+#if !defined(_WIN32) && !defined(NINJA_BOOTSTRAP)
     { "browse", "browse dependency graph in a web browser",
       ToolBrowse },
 #endif
@@ -499,6 +534,9 @@ int RunTool(const string& tool, Globals* globals, int argc, char** argv) {
     for (int i = 0; tools[i].name; ++i) {
       printf("%10s  %s\n", tools[i].name, tools[i].desc);
     }
+    return 0;
+  } else if (tool == "urtle") {
+    ToolUrtle();
     return 0;
   }
 
@@ -609,9 +647,10 @@ int main(int argc, char** argv) {
         if (*end != 0)
           Fatal("-k parameter not numeric; did you mean -k0?");
 
-        // We want to go until N jobs fail, which means we should ignore
-        // the first N-1 that fail and then stop.
-        globals.config.swallow_failures = value - 1;
+        // We want to go until N jobs fail, which means we should allow
+        // N failures and then stop.  For N <= 0, INT_MAX is close enough
+        // to infinite for most sane builds.
+        globals.config.failures_allowed = value > 0 ? value : INT_MAX;
         break;
       }
       case 'n':
@@ -709,7 +748,7 @@ reload:
     printf("\n");
     int count = (int)globals.state->paths_.size();
     int buckets =
-#ifdef _WIN32
+#ifdef _MSC_VER
         (int)globals.state->paths_.comp.bucket_size;
 #else
         (int)globals.state->paths_.bucket_count();

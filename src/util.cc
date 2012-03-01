@@ -47,7 +47,7 @@ void Fatal(const char* msg, ...) {
   vfprintf(stderr, msg, ap);
   va_end(ap);
   fprintf(stderr, "\n");
-#ifdef WIN32
+#ifdef _WIN32
   // On Windows, some tools may inject extra threads.
   // exit() may block on locks held by those threads, so forcibly exit.
   fflush(stderr);
@@ -79,7 +79,10 @@ void Error(const char* msg, ...) {
 bool CanonicalizePath(string* path, string* err) {
   METRIC_RECORD("canonicalize str");
   int len = path->size();
-  if (!CanonicalizePath(&(*path)[0], &len, err))
+  char* str = 0;
+  if (len > 0)
+    str = &(*path)[0];
+  if (!CanonicalizePath(str, &len, err))
     return false;
   path->resize(len);
   return true;
@@ -143,6 +146,11 @@ bool CanonicalizePath(char* path, int* len, string* err) {
     }
 
     src = sep + 1;
+  }
+
+  if (dst == start) {
+    *err = "path canonicalizes to the empty path";
+    return false;
   }
 
   *len = dst - start - 1;
@@ -235,7 +243,7 @@ const char* SpellcheckString(const string& text, ...) {
   return SpellcheckStringV(text, words);
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 string GetLastErrorString() {
   DWORD err = GetLastError();
 
@@ -255,3 +263,31 @@ string GetLastErrorString() {
   return msg;
 }
 #endif
+
+static bool islatinalpha(int c) {
+  // isalpha() is locale-dependent.
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
+string StripAnsiEscapeCodes(const string& in) {
+  string stripped;
+  stripped.reserve(in.size());
+
+  for (size_t i = 0; i < in.size(); ++i) {
+    if (in[i] != '\33') {
+      // Not an escape code.
+      stripped.push_back(in[i]);
+      continue;
+    }
+
+    // Only strip CSIs for now.
+    if (i + 1 >= in.size()) break;
+    if (in[i + 1] != '[') continue;  // Not a CSI.
+    i += 2;
+
+    // Skip everything up to and including the next [a-zA-Z].
+    while (i < in.size() && !islatinalpha(in[i]))
+      ++i;
+  }
+  return stripped;
+}
