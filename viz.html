@@ -1,0 +1,135 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+#intro, #label {
+  margin-left: auto;
+  margin-right: auto;
+  width: 600px;
+}
+h1 {
+  font-family: Verdana;
+  font-size:24px;
+  line-height:30px;
+}
+p, #label, svg {
+  font-family: Georgia;
+  font-size:14px;
+  line-height:18px;
+}
+#graph1, #graph2 {text-align:center;}
+</style>
+
+<script src="d3.v2.min.js"></script>
+<script>
+function show(file, wrapper) {
+d3.csv(file, function(data) {
+//data = data.slice(1, 10);
+
+var w = 1100,
+    h = 500,
+    m = [10, 0, 20, 35]; // top right bottom left
+
+var container = d3.select(wrapper).
+  append("svg:svg").
+  attr("width", w).
+  attr("height", h);
+
+var xScale = d3.scale.log().  // time  -- linear and log are both interesting
+  //domain([0.3, 90000]). // To include sqlite3.c, content_message_generator.cc,
+                          // V8DerivedSources08.cpp
+  domain([20, 40000]).
+  range([m[3], w - m[1] - m[3]]);
+
+var yScale = d3.scale.linear().  // LoC
+  //domain([0, 280000]).  // For LoC
+  domain([0, 8500000]).  // For bytes. some icu file is 23MB, the rest is less.
+  range([h - m[0] - m[2], m[0]]);
+
+var c = d3.scale.linear().
+    domain([0,data.length - 1]).
+    range(["blue", "red"]).
+    //range(["hsl(240, 0%, 50%)", "hsl(260, 100%, 50%)"]).
+        interpolate(d3.interpolateHsl);
+
+var label = d3.select("#label")[0][0];  // XXX ??
+
+// Add circles
+var siFormat = d3.format(".3s");
+container.selectAll("circle").
+  data(data).
+  enter().
+  append("svg:circle").
+  attr("cx", function(d) { return xScale(d.t_ms); }).
+  //attr("cy", function(d) { return yScale(d.nlines); }).
+  attr("cy", function(d) { return yScale(d.in_size_bytes); }).
+  attr("fill-opacity", .3).
+  attr("r", "4px").
+  attr("fill", function(d, i) { return c(i); }).
+  on("mouseover", function(d) {
+    d3.select(this).attr('fill', 'black');
+    label.innerHTML =
+        d.name + ':<br>' + siFormat(d.t_ms / 1000) + 's, ' +
+        d.nlines + ' lines, ' + siFormat(+d.in_size_bytes) + 'B input, ' +
+        siFormat(+d.out_size_bytes) + 'B output';
+  }).
+  on("mouseout", function(d, i) {
+    d3.select(this).attr('fill', c(i));
+    label.innerText = '';
+  });
+
+// Add x tick marks
+var tickpositions = [1000, 3000, 10000];  // ticks() doesn't do what I want.
+var ticks = container.selectAll(".xtick").
+  data(tickpositions).
+  enter().
+  append("svg:g").
+  attr('transform', function(d) {
+      return "translate(" + xScale(d) + ", 0)";
+  }).
+  attr('class', 'xtick');
+
+ticks.append("svg:line").attr("x1", 0).attr("y1", m[0]).
+                         attr("x2", 0).attr("y2", h - m[2]).
+                         attr("shape-rendering", "crispEdges").
+                         attr("stroke", "steelblue");
+ticks.append("svg:text").
+    text(function(d) { return d / 1000 + " s"; }).
+    attr('text-anchor', 'middle').
+    attr('alignment-baseline', 'text-before-edge').
+    attr('x', 0).attr("y", h - m[2]);
+    //attr('dx', -4).attr('dy', 2);
+
+// Add legend
+container.append("svg:text").
+    text(file).
+    attr('text-anchor', 'end').
+    attr('alignment-baseline', 'text-after-edge').
+    attr('x', w - m[1]).attr("y",  m[0] + 4);
+
+});
+}
+
+show('build-times-linux.csv', '#graph1');
+show('build-times-mac-fastbuild.csv', '#graph2');
+
+</script>
+<body>
+<div id="intro">
+<h1>Chromium build times</h1>
+<p>These graphs show <b>time</b> per compilation <b>in ms</b> (log scale) over preprocessed
+input <b>filesize in bytes</b>.
+
+<p>Files that are built early are blue, things that are built late are red, and
+the hue interpolates between them. For example, WebKit is built in the middle
+of a build and is hence green.
+
+<p>Not the discrete filesize bands on Mac, which are probably caused by huge
+framework headers like <code>Cocoa.h</code> and <code>Foundation.h</code>.
+Some files are very small but still manage to take a long time to build, for
+example <code>dsputil.c</code>.
+
+<p>Mouse over the graphs for detailed information on every file.
+</div>
+<div id="graph1"></div>
+<div id="label" style="height:36px"></div>
+<div id="graph2"></div>
