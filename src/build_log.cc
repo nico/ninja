@@ -22,6 +22,10 @@
 #include <unistd.h>
 #endif
 
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
 #include "build.h"
 #include "graph.h"
 #include "metrics.h"
@@ -109,7 +113,9 @@ void BuildLog::Close() {
 
 bool BuildLog::Load(const string& path, string* err) {
   METRIC_RECORD(".ninja_log load");
-  FILE* file = fopen(path.c_str(), "r");
+
+
+  int file = open(path.c_str(), O_RDONLY);
   if (!file) {
     if (errno == ENOENT)
       return true;
@@ -117,25 +123,52 @@ bool BuildLog::Load(const string& path, string* err) {
     return false;
   }
 
+  struct stat file_stat;
+  if (fstat(file, &file_stat)) {
+    *err = strerror(errno);
+    close(file);
+    return false;
+  }
+
+  char* file_buf = (char*)mmap(
+      /*addr=*/0, file_stat.st_size, PROT_READ, MAP_SHARED, file, /*offset=*/0);
+  if (file_buf == MAP_FAILED) {
+    *err = strerror(errno);
+    close(file);
+    return false;
+  }
+
   int log_version = 0;
   int unique_entry_count = 0;
   int total_entry_count = 0;
 
-  char buf[256 << 10];
-  while (fgets(buf, sizeof(buf), file)) {
+  char* line_start = file_buf, *line_end = NULL;
+  size_t line_start_idx = -1;
+  while (1) {
+    if (line_end) {
+      line_start = line_end + 1;
+      line_start_idx = line_start - file_buf;
+    }
+
+    line_end = (char*)memchr(
+        line_start, '\n', file_stat.st_size - line_start_idx);
+
+    if (!line_end)
+      break;
+
     if (!log_version) {
       log_version = 1;  // Assume by default.
-      if (sscanf(buf, kFileSignature, &log_version) > 0)
+      if (sscanf(line_start, kFileSignature, &log_version) > 0)
         continue;
     }
 
     char field_separator = log_version >= 4 ? '\t' : ' ';
 
-    char* start = buf;
+    char* start = line_start;
     char* end = strchr(start, field_separator);
     if (!end)
       continue;
-    *end = 0;
+    //*end = 0;
 
     int start_time = 0, end_time = 0;
     TimeStamp restat_mtime = 0;
@@ -146,14 +179,14 @@ bool BuildLog::Load(const string& path, string* err) {
     end = strchr(start, field_separator);
     if (!end)
       continue;
-    *end = 0;
+    //*end = 0;
     end_time = atoi(start);
     start = end + 1;
 
     end = strchr(start, field_separator);
     if (!end)
       continue;
-    *end = 0;
+    //*end = 0;
     restat_mtime = atol(start);
     start = end + 1;
 
@@ -163,7 +196,7 @@ bool BuildLog::Load(const string& path, string* err) {
     string output = string(start, end - start);
 
     start = end + 1;
-    end = strchr(start, '\n');
+    end = line_end;
     if (!end)
       continue;
 
@@ -197,7 +230,8 @@ bool BuildLog::Load(const string& path, string* err) {
     needs_recompaction_ = true;
   }
 
-  fclose(file);
+  munmap(file_buf, file_stat.st_size);
+  close(file);
 
   return true;
 }
