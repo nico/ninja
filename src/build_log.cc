@@ -121,8 +121,17 @@ bool BuildLog::Load(const string& path, string* err) {
   int unique_entry_count = 0;
   int total_entry_count = 0;
 
+#if 0  // orig
   char buf[256 << 10];
   while (fgets(buf, sizeof(buf), file)) {
+#elif 0  // linux
+  size_t bufsize = 256 << 10;
+  char* buf = (char*)malloc(bufsize);
+  while (ssize_t n = getline(&buf, &bufsize, file)) {
+#else  // bsd
+  size_t n;
+  while (char* buf = fgetln(file, &n)) {
+#endif
     if (!log_version) {
       log_version = 1;  // Assume by default.
       if (sscanf(buf, kFileSignature, &log_version) > 0)
@@ -163,8 +172,13 @@ bool BuildLog::Load(const string& path, string* err) {
     string output = string(start, end - start);
 
     start = end + 1;
+#if 0
     end = strchr(start, '\n');
     if (!end)
+#else
+    end = buf + n - 1;
+    if (*end != '\n')
+#endif
       continue;
 
     LogEntry* entry;
@@ -184,6 +198,9 @@ bool BuildLog::Load(const string& path, string* err) {
     entry->restat_mtime = restat_mtime;
     entry->command = string(start, end - start);
   }
+#if 0  // linux
+  free(buf);
+#endif
 
   // Decide whether it's time to rebuild the log:
   // - if we're upgrading versions
