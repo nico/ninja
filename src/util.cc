@@ -112,6 +112,44 @@ bool CanonicalizePath(char* path, int* len, string* err) {
     ++dst;
   }
 
+#if 1
+  while (src < end) {
+    if (*src == '.') {
+      if (src + 1 == end || src[1] == '/')
+        break;
+
+      if (src[1] == '.' && (src + 2 == end || src[2] == '/')) {
+        if (component_count > 0) 
+          break;
+
+        src += 3;
+        continue;
+      }
+    } 
+    if (*src == '/') {
+      break;
+    }
+
+    if (component_count == kMaxPathComponents)
+      Fatal("path has too many components");
+    components[component_count] = /*dst*/ (char*)src;  // XXX needs test
+    ++component_count;
+
+    const char* sep = (const char*)memchr(src, '/', end - src);
+    if (sep == NULL) sep = end;
+    src = sep + 1;
+    //while (*src != '/' && src != end) {  // XXX memchr once this works
+      //dst++;
+      //src++;
+    //}
+    // Copy '/' or final \0 character as well.
+    //dst++;
+    //src++;
+  }
+
+  dst = (char*)src;
+#endif
+
   while (src < end) {
     if (*src == '.') {
       if (src + 1 == end || src[1] == '/') {
@@ -131,8 +169,7 @@ bool CanonicalizePath(char* path, int* len, string* err) {
         }
         continue;
       }
-    }
-
+    } 
     if (*src == '/') {
       src++;
       continue;
