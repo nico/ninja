@@ -178,7 +178,7 @@ bool Edge::AllInputsReady() const {
 /// An Env for an Edge, providing $in and $out.
 struct EdgeEnv : public Env {
   explicit EdgeEnv(Edge* edge) : edge_(edge) {}
-  virtual string LookupVariable(const string& var);
+  virtual string LookupVariable(StringPiece var);
 
   /// Given a span of Nodes, construct a list of paths suitable for a command
   /// line.  XXX here is where shell-escaping of e.g spaces should happen.
@@ -188,7 +188,7 @@ struct EdgeEnv : public Env {
   Edge* edge_;
 };
 
-string EdgeEnv::LookupVariable(const string& var) {
+string EdgeEnv::LookupVariable(StringPiece var) {
   if (var == "in") {
     int explicit_deps_count = edge_->inputs_.size() - edge_->implicit_deps_ -
       edge_->order_only_deps_;

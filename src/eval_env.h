@@ -25,7 +25,7 @@ using namespace std;
 /// An interface for a scope for variable (e.g. "$foo") lookups.
 struct Env {
   virtual ~Env() {}
-  virtual string LookupVariable(const string& var) = 0;
+  virtual string LookupVariable(StringPiece var) = 0;
 };
 
 /// An Env which contains a mapping of variables to values
@@ -34,7 +34,7 @@ struct BindingEnv : public Env {
   BindingEnv() : parent_(NULL) {}
   explicit BindingEnv(Env* parent) : parent_(parent) {}
   virtual ~BindingEnv() {}
-  virtual string LookupVariable(const string& var);
+  virtual string LookupVariable(StringPiece var);
   void AddBinding(const string& key, const string& val);
 
 private:

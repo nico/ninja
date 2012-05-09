@@ -14,8 +14,8 @@
 
 #include "eval_env.h"
 
-string BindingEnv::LookupVariable(const string& var) {
-  map<string, string>::iterator i = bindings_.find(var);
+string BindingEnv::LookupVariable(StringPiece var) {
+  map<string, string>::iterator i = bindings_.find(var.AsString());
   if (i != bindings_.end())
     return i->second;
   if (parent_)
