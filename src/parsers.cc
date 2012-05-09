@@ -29,14 +29,19 @@ ManifestParser::ManifestParser(State* state, FileReader* file_reader)
   env_ = &state->bindings_;
 }
 bool ManifestParser::Load(const string& filename, string* err) {
-  string contents;
+  string* contents = new string;  // XXX leak
   string read_err;
-  if (!file_reader_->ReadFile(filename, &contents, &read_err)) {
+  if (!file_reader_->ReadFile(filename, contents, &read_err)) {
     *err = "loading '" + filename + "': " + read_err;
     return false;
   }
-  contents.resize(contents.size() + 10);
-  return Parse(filename, contents, err);
+  contents->resize(contents->size() + 10);
+  return Parse(filename, *contents, err);
+}
+
+bool ManifestParser::ParseTest(const string& input, string* err) {
+  const string& leak = *new string(input);
+  return Parse("input", leak, err);
 }
 
 bool ManifestParser::Parse(const string& filename, const string& input,

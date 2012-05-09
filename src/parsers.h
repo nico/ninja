@@ -41,9 +41,7 @@ struct ManifestParser {
   bool Load(const string& filename, string* err);
 
   /// Parse a text string of input.  Used by tests.
-  bool ParseTest(const string& input, string* err) {
-    return Parse("input", input, err);
-  }
+  bool ParseTest(const string& input, string* err);
 
 private:
   /// Parse a file, given its contents as a string.

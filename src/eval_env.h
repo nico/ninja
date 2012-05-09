@@ -59,7 +59,7 @@ struct EvalString {
 
 private:
   enum TokenType { RAW, SPECIAL };
-  typedef vector<pair<string, TokenType> > TokenList;
+  typedef vector<pair<StringPiece, TokenType> > TokenList;
   TokenList parsed_;
 };
 
