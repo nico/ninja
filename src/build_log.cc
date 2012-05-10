@@ -166,7 +166,8 @@ bool BuildLog::Load(const string& path, string* err) {
     char field_separator = log_version >= 4 ? '\t' : ' ';
 
     char* start = line_start;
-    char* end = strchr(start, field_separator);
+    //char* end = strchr(start, field_separator);
+    char* end = (char*)memchr(start, field_separator, buf_end - start);
     if (!end)
       continue;
     *end = 0;
@@ -177,21 +178,24 @@ bool BuildLog::Load(const string& path, string* err) {
     start_time = atoi(start);
     start = end + 1;
 
-    end = strchr(start, field_separator);
+    //end = strchr(start, field_separator);
+    end = (char*)memchr(start, field_separator, buf_end - start);
     if (!end)
       continue;
     *end = 0;
     end_time = atoi(start);
     start = end + 1;
 
-    end = strchr(start, field_separator);
+    //end = strchr(start, field_separator);
+    end = (char*)memchr(start, field_separator, buf_end - start);
     if (!end)
       continue;
     *end = 0;
     restat_mtime = atol(start);
     start = end + 1;
 
-    end = strchr(start, field_separator);
+    //end = strchr(start, field_separator);
+    end = (char*)memchr(start, field_separator, buf_end - start);
     if (!end)
       continue;
     string output = string(start, end - start);
