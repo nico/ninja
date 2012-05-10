@@ -27,6 +27,108 @@
 #include "metrics.h"
 #include "util.h"
 
+#include <assert.h>
+#include <tmmintrin.h>
+
+inline unsigned CountTrailingZeros_32(uint32_t val) {
+  return val ? __builtin_ctz(val) : 32;
+}
+
+
+#if 1
+char* memchrSSE2(char* str, int c, size_t n) {
+    // Write c as sentinel value after string. Assumes that str[n] is writeable.
+    char* start = str;
+    char old = start[n];
+    start[n] = c;
+
+    __m128i needle16 = _mm_set1_epi8(c);
+
+    // Handle unaligned start.
+    ptrdiff_t str_as_int = reinterpret_cast<ptrdiff_t>(str);
+    size_t n_unaligned = str_as_int & 15;
+    if (n_unaligned > 0) {
+        __m128i str16 = *(const __m128i*)(str_as_int & ~15);
+        __m128i hits16 = _mm_cmpeq_epi8(str16, needle16);
+        unsigned long hit_mask = _mm_movemask_epi8(hits16);
+        hit_mask &= 0xFFFFFFFF << n_unaligned;
+        if (hit_mask) {
+            start[n] = old;
+            char* r = str + __builtin_ctz(hit_mask);
+            return r < start + n ? r : NULL;
+        }
+        str += 16 - n_unaligned;
+    }
+
+    for (;;) {
+        __m128i str16 = *(const __m128i*)&str[0];
+        __m128i hits16 = _mm_cmpeq_epi8(str16, needle16);
+        unsigned long hit_mask = _mm_movemask_epi8(hits16);
+        if (hit_mask) {
+            start[n] = old;
+            char* r = str + __builtin_ctz(hit_mask);
+            return r < start + n ? r : NULL;
+        }
+        str += 16;
+    }
+}
+#else
+
+// http://labs.cybozu.co.jp/blog/mitsunari/search.cpp
+#ifdef _WIN32
+	#include <intrin.h>
+	#define ALIGN(x) __declspec(align(x))
+	#define bsf(x) (_BitScanForward(&x, x), x)
+	#define bsr(x) (_BitScanReverse(&x, x), x)
+#else
+	#include <xmmintrin.h>
+	#define ALIGN(x) __attribute__((aligned(x)))
+	#define bsf(x) __builtin_ctz(x)
+#endif
+
+void* memchrSSE2(const void *ptr, int c, size_t len)
+{
+	const char *p = reinterpret_cast<const char*>(ptr);
+	if (len >= 16) {
+		__m128i c16 = _mm_set1_epi8(static_cast<char>(c));
+		/* 16 byte alignment */
+		size_t ip = reinterpret_cast<size_t>(p);
+		size_t n = ip & 15;
+		if (n > 0) {
+			ip &= ~15;
+			__m128i x = *(const __m128i*)ip;
+			__m128i a = _mm_cmpeq_epi8(x, c16);
+			unsigned long mask = _mm_movemask_epi8(a);
+			mask &= 0xffffffffUL << n;
+			if (mask) {
+				return (void*)(ip + bsf(mask));
+			}
+			n = 16 - n;
+			len -= n;
+			p += n;
+		}
+		while (len >= 32) {
+			__m128i x = *(const __m128i*)&p[0];
+			__m128i y = *(const __m128i*)&p[16];
+			__m128i a = _mm_cmpeq_epi8(x, c16);
+			__m128i b = _mm_cmpeq_epi8(y, c16);
+			unsigned long mask = (_mm_movemask_epi8(b) << 16) | _mm_movemask_epi8(a);
+			if (mask) {
+				return (void*)(p + bsf(mask));
+			}
+			len -= 32;
+			p += 32;
+		}
+	}
+	while (len > 0) {
+		if (*p == c) return (void*)p;
+		p++;
+		len--;
+	}
+	return 0;
+}
+#endif
+
 // Implementation details:
 // Each run's log appends to the log file.
 // To load, we run through all log entries in series, throwing away
@@ -133,7 +235,7 @@ class LineReader {
       line_start_ = line_end_ + 1;
     }
 
-    line_end_ = (char*)memchr(line_start_, '\n', buf_end_ - line_start_);
+    line_end_ = (char*)memchrSSE2(line_start_, '\n', buf_end_ - line_start_);
     if (!line_end_) {
       // No newline. Move rest of data to start of buffer, fill rest.
       size_t already_consumed = line_start_ - buf_;
@@ -143,7 +245,7 @@ class LineReader {
       size_t read = fread(buf_ + size_rest, 1, sizeof(buf_) - size_rest, file_);
       buf_end_ = buf_ + size_rest + read;
       line_start_ = buf_;
-      line_end_ = (char*)memchr(line_start_, '\n', buf_end_ - line_start_);
+      line_end_ = (char*)memchrSSE2(line_start_, '\n', buf_end_ - line_start_);
     }
 
     *line_start = line_start_;
@@ -191,7 +293,7 @@ bool BuildLog::Load(const string& path, string* err) {
     char field_separator = log_version >= 4 ? '\t' : ' ';
 
     char* start = line_start;
-    char* end = (char*)memchr(start, field_separator, line_end - start);
+    char* end = (char*)memchrSSE2(start, field_separator, line_end - start);
     if (!end)
       continue;
     *end = 0;
@@ -202,21 +304,21 @@ bool BuildLog::Load(const string& path, string* err) {
     start_time = atoi(start);
     start = end + 1;
 
-    end = (char*)memchr(start, field_separator, line_end - start);
+    end = (char*)memchrSSE2(start, field_separator, line_end - start);
     if (!end)
       continue;
     *end = 0;
     end_time = atoi(start);
     start = end + 1;
 
-    end = (char*)memchr(start, field_separator, line_end - start);
+    end = (char*)memchrSSE2(start, field_separator, line_end - start);
     if (!end)
       continue;
     *end = 0;
     restat_mtime = atol(start);
     start = end + 1;
 
-    end = (char*)memchr(start, field_separator, line_end - start);
+    end = (char*)memchrSSE2(start, field_separator, line_end - start);
     if (!end)
       continue;
     string output = string(start, end - start);
