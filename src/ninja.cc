@@ -629,6 +629,8 @@ int RunBuild(Globals* globals, int argc, char** argv) {
 }  // anonymous namespace
 
 int main(int argc, char** argv) {
+  int64_t start_timestamp = GetTimeMillis();
+
   Globals globals;
   globals.ninja_command = argv[0];
   const char* input_file = "build.ninja";
@@ -646,9 +648,15 @@ int main(int argc, char** argv) {
 
   int opt;
   while (tool.empty() &&
-         (opt = getopt_long(argc, argv, "d:f:hj:k:l:nt:vC:V", kLongOptions,
+         (opt = getopt_long(argc, argv, "d:f:hj:k:l:nt:vC:VD:", kLongOptions,
                             NULL)) != -1) {
     switch (opt) {
+      case 'D': {
+        int64_t shell_timestamp = atoll(optarg);
+        int64_t startup_ms = start_timestamp - shell_timestamp;
+        printf("Loading took %lldms\n", startup_ms);
+        break;
+      }
       case 'd':
         if (!DebugEnable(optarg, &globals))
           return 1;
