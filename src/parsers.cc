@@ -185,7 +185,8 @@ bool ManifestParser::ParseDefault(string* err) {
 }
 
 bool ManifestParser::ParseEdge(string* err) {
-  vector<EvalString> ins, outs;
+  ins.clear();
+  outs.clear();
 
   {
     EvalString out;

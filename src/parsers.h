@@ -64,6 +64,10 @@ private:
   BindingEnv* env_;
   FileReader* file_reader_;
   Lexer lexer_;
+
+  // Instance vars for perf, so they don't need start out at size 0 in every
+  // ParseEdge() call.
+  vector<EvalString> ins, outs;
 };
 
 #endif  // NINJA_PARSERS_H_
