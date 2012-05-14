@@ -565,7 +565,8 @@ yy87:
   return true;
 }
 
-bool Lexer::ReadEvalString(EvalString* eval, bool path, string* err) {
+bool Lexer::ReadEvalString(
+    EvalString* eval, bool path, StringPool* pool, string* err) {
   const char* p = ofs_;
   const char* q;
   const char* start;
@@ -629,7 +630,7 @@ bool Lexer::ReadEvalString(EvalString* eval, bool path, string* err) {
 	goto yy120;
 yy91:
 	{
-      eval->AddText(StringPiece(start, p - start));
+      eval->AddText(StringPiece(start, p - start), pool);
       continue;
     }
 yy92:
@@ -641,7 +642,7 @@ yy92:
       } else {
         if (*start == '\n')
           break;
-        eval->AddText(StringPiece(start, 1));
+        eval->AddText(StringPiece(start, 1), pool);
         continue;
       }
     }
@@ -702,13 +703,13 @@ yy99:
 yy100:
 	++p;
 	{
-      eval->AddText(StringPiece(" ", 1));
+      eval->AddText(StringPiece(" ", 1), pool);
       continue;
     }
 yy102:
 	++p;
 	{
-      eval->AddText(StringPiece("$", 1));
+      eval->AddText(StringPiece("$", 1), pool);
       continue;
     }
 yy104:
@@ -717,13 +718,13 @@ yy104:
 	goto yy118;
 yy105:
 	{
-      eval->AddSpecial(StringPiece(start + 1, p - start - 1));
+      eval->AddSpecial(StringPiece(start + 1, p - start - 1), pool);
       continue;
     }
 yy106:
 	++p;
 	{
-      eval->AddText(StringPiece(":", 1));
+      eval->AddText(StringPiece(":", 1), pool);
       continue;
     }
 yy108:
@@ -753,7 +754,7 @@ yy112:
 yy115:
 	++p;
 	{
-      eval->AddSpecial(StringPiece(start + 2, p - start - 3));
+      eval->AddSpecial(StringPiece(start + 2, p - start - 3), pool);
       continue;
     }
 yy117:

@@ -15,7 +15,7 @@
 #include "eval_env.h"
 
 string BindingEnv::LookupVariable(StringPiece var) {
-  map<string, string>::iterator i = bindings_.find(var.AsString());
+  map<string, string>::iterator i = bindings_.find(var.AsString()); // XXX
   if (i != bindings_.end())
     return i->second;
   if (parent_)
@@ -38,11 +38,16 @@ string EvalString::Evaluate(Env* env) const {
   return result;
 }
 
-void EvalString::AddText(StringPiece text) {
+void EvalString::AddText(StringPiece text, StringPool* pool) {
+  // XXX add to last element in pool if prev was RAW
+  if (pool)
+    text = pool->Add(text);
   parsed_.push_back(make_pair(text, RAW));
 }
 
-void EvalString::AddSpecial(StringPiece text) {
+void EvalString::AddSpecial(StringPiece text, StringPool* pool) {
+  if (pool)
+    text = pool->Add(text);
   parsed_.push_back(make_pair(text, SPECIAL));
 }
 

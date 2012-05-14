@@ -23,6 +23,7 @@ using namespace std;
 
 #include "eval_env.h"
 #include "hash_map.h"
+#include "string_pool.h"
 
 struct BuildLog;
 struct Edge;
@@ -69,6 +70,10 @@ struct State {
 
   /// All the edges of the graph.
   vector<Edge*> edges_;
+
+  // Storage for strings referenced by EvalString StringPieces.
+  // XXX use a bumpptr allocator instead
+  StringPool string_pool_;
 
   BindingEnv bindings_;
   vector<Node*> defaults_;

@@ -68,7 +68,7 @@ bool ManifestParser::Parse(const string& filename, const string& input,
       lexer_.UnreadToken();
       string name;
       EvalString value;
-      if (!ParseLet(&name, &value, err))
+      if (!ParseLet(&name, &value, NULL, err))
         return false;
       env_->AddBinding(name, value.Evaluate(env_));
       break;
@@ -113,7 +113,7 @@ bool ManifestParser::ParseRule(string* err) {
   while (lexer_.PeekToken(Lexer::INDENT)) {
     string key;
     EvalString value;
-    if (!ParseLet(&key, &value, err))
+    if (!ParseLet(&key, &value, &state_->string_pool_, err))
       return false;
 
     if (key == "command") {
@@ -147,19 +147,20 @@ bool ManifestParser::ParseRule(string* err) {
   return true;
 }
 
-bool ManifestParser::ParseLet(string* key, EvalString* value, string* err) {
+bool ManifestParser::ParseLet(
+    string* key, EvalString* value, StringPool* pool, string* err) {
   if (!lexer_.ReadIdent(key))
     return false;
   if (!ExpectToken(Lexer::EQUALS, err))
     return false;
-  if (!lexer_.ReadVarValue(value, err))
+  if (!lexer_.ReadVarValue(value, pool, err))
     return false;
   return true;
 }
 
 bool ManifestParser::ParseDefault(string* err) {
   EvalString eval;
-  if (!lexer_.ReadPath(&eval, err))
+  if (!lexer_.ReadPath(&eval, NULL, err))
     return false;
   if (eval.empty())
     return lexer_.Error("expected target name", err);
@@ -173,7 +174,7 @@ bool ManifestParser::ParseDefault(string* err) {
       return lexer_.Error(path_err, err);
 
     eval.Clear();
-    if (!lexer_.ReadPath(&eval, err))
+    if (!lexer_.ReadPath(&eval, NULL, err))
       return false;
   } while (!eval.empty());
 
@@ -188,7 +189,7 @@ bool ManifestParser::ParseEdge(string* err) {
 
   {
     EvalString out;
-    if (!lexer_.ReadPath(&out, err))
+    if (!lexer_.ReadPath(&out, NULL, err))
       return false;
     if (out.empty())
       return lexer_.Error("expected path", err);
@@ -197,7 +198,7 @@ bool ManifestParser::ParseEdge(string* err) {
       outs.push_back(out);
 
       out.Clear();
-      if (!lexer_.ReadPath(&out, err))
+      if (!lexer_.ReadPath(&out, NULL, err))
         return false;
     } while (!out.empty());
   }
@@ -216,7 +217,7 @@ bool ManifestParser::ParseEdge(string* err) {
   for (;;) {
     // XXX should we require one path here?
     EvalString in;
-    if (!lexer_.ReadPath(&in, err))
+    if (!lexer_.ReadPath(&in, NULL, err))
       return false;
     if (in.empty())
       break;
@@ -228,7 +229,7 @@ bool ManifestParser::ParseEdge(string* err) {
   if (lexer_.PeekToken(Lexer::PIPE)) {
     for (;;) {
       EvalString in;
-      if (!lexer_.ReadPath(&in, err))
+      if (!lexer_.ReadPath(&in, NULL, err))
         return err;
       if (in.empty())
         break;
@@ -242,7 +243,7 @@ bool ManifestParser::ParseEdge(string* err) {
   if (lexer_.PeekToken(Lexer::PIPE2)) {
     for (;;) {
       EvalString in;
-      if (!lexer_.ReadPath(&in, err))
+      if (!lexer_.ReadPath(&in, NULL, err))
         return false;
       if (in.empty())
         break;
@@ -264,7 +265,7 @@ bool ManifestParser::ParseEdge(string* err) {
     do {
       string key;
       EvalString val;
-      if (!ParseLet(&key, &val, err))
+      if (!ParseLet(&key, &val, NULL, err))
         return false;
       env->AddBinding(key, val.Evaluate(env_));
     } while (lexer_.PeekToken(Lexer::INDENT));
@@ -293,9 +294,8 @@ bool ManifestParser::ParseEdge(string* err) {
 }
 
 bool ManifestParser::ParseFileInclude(bool new_scope, string* err) {
-  // XXX this should use ReadPath!
   EvalString eval;
-  if (!lexer_.ReadPath(&eval, err))
+  if (!lexer_.ReadPath(&eval, NULL, err))
     return false;
   string path = eval.Evaluate(env_);
 

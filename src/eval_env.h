@@ -21,6 +21,7 @@
 using namespace std;
 
 #include "string_piece.h"
+#include "string_pool.h"
 
 /// An interface for a scope for variable (e.g. "$foo") lookups.
 struct Env {
@@ -50,8 +51,8 @@ struct EvalString {
   void Clear() { parsed_.clear(); }
   bool empty() const { return parsed_.empty(); }
 
-  void AddText(StringPiece text);
-  void AddSpecial(StringPiece text);
+  void AddText(StringPiece text, StringPool* pool);
+  void AddSpecial(StringPiece text, StringPool* pool);
 
   /// Construct a human-readable representation of the parsed state,
   /// for use in tests.

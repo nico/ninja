@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "string_piece.h"
+#include "string_pool.h"
 
 // Windows may #define ERROR.
 #ifdef ERROR
@@ -69,14 +70,16 @@ struct Lexer {
   /// Read a path (complete with $escapes).
   /// Returns false only on error, returned path may be empty if a delimiter
   /// (space, newline) is hit.
-  bool ReadPath(EvalString* path, string* err) {
-    return ReadEvalString(path, true, err);
+  // If pool is not NULL, the parts of |path| will be added to it. Set it if
+  // the returned path will live longer than the buffer the lexer lexes from.
+  bool ReadPath(EvalString* path, StringPool* pool, string* err) {
+    return ReadEvalString(path, true, pool, err);
   }
 
   /// Read the value side of a var = value line (complete with $escapes).
   /// Returns false only on error.
-  bool ReadVarValue(EvalString* value, string* err) {
-    return ReadEvalString(value, false, err);
+  bool ReadVarValue(EvalString* value, StringPool* pool, string* err) {
+    return ReadEvalString(value, false, pool, err);
   }
 
   /// Construct an error message with context.
@@ -87,7 +90,8 @@ private:
   void EatWhitespace();
 
   /// Read a $-escaped string.
-  bool ReadEvalString(EvalString* eval, bool path, string* err);
+  bool ReadEvalString(
+      EvalString* eval, bool path, StringPool* pool, string* err);
 
   StringPiece filename_;
   StringPiece input_;
