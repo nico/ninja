@@ -66,11 +66,11 @@ bool ManifestParser::Parse(const string& filename, const string& input,
       break;
     case Lexer::IDENT: {
       lexer_.UnreadToken();
-      string name;
-      EvalString value;
-      if (!ParseLet(&name, &value, NULL, err))
+      string key;
+      EvalString val;
+      if (!ParseLet(&key, &val, NULL, err))
         return false;
-      env_->AddBinding(name, value.Evaluate(env_));
+      env_->AddBinding(state_->string_pool_.AddStr(key), val.Evaluate(env_));
       break;
     }
     case Lexer::INCLUDE:
@@ -267,7 +267,7 @@ bool ManifestParser::ParseEdge(string* err) {
       EvalString val;
       if (!ParseLet(&key, &val, NULL, err))
         return false;
-      env->AddBinding(key, val.Evaluate(env_));
+      env->AddBinding(state_->string_pool_.AddStr(key), val.Evaluate(env_));
     } while (lexer_.PeekToken(Lexer::INDENT));
   }
 

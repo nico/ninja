@@ -19,15 +19,58 @@
 #include <vector>
 using namespace std;
 
+#if 1
 class StringPool {
  public:
   StringPiece Add(StringPiece p) {
     pool_.push_back(p.AsString());
     return pool_.back();
   }
+
+  StringPiece AddStr(const string& s) {
+    pool_.push_back(s);
+    return pool_.back();
+  }
  private:
   // XXX bumpptr allocator instead
   vector<string> pool_;
 };
+#else
+class StringPool {
+ public:
+  StringPool() {
+    first_ = cur_ = new Slab;
+  }
+
+  // XXX free
+
+  StringPiece Add(StringPiece p) {
+    if (p.len_ > (int)sizeof(cur_->buf) - cur_->occ) {
+fprintf(stderr, "slab realloc\n");
+      cur_->next = new Slab;
+      cur_ = cur_->next;
+    }
+
+    //pool_.push_back(p.AsString());
+    //return pool_.back();
+    char* dst = cur_->buf + cur_->occ;
+    memcpy(dst, p.str_, p.len_);
+    cur_->occ += p.len_;
+    return StringPiece(dst, p.len_);
+  }
+ private:
+  // XXX bumpptr allocator instead
+  //vector<string> pool_;
+  struct Slab {
+    Slab() : next(NULL), occ(0) {}
+
+    Slab* next;
+    char buf[1 << 20];  // 1 MB
+    int occ;
+  };
+  Slab* first_;
+  Slab* cur_;
+};
+#endif
 
 #endif  // NINJA_STRING_POOL_H_

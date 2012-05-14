@@ -20,6 +20,7 @@
 #include <vector>
 using namespace std;
 
+#include "hash_map.h"
 #include "string_piece.h"
 #include "string_pool.h"
 
@@ -36,16 +37,18 @@ struct BindingEnv : public Env {
   explicit BindingEnv(Env* parent) : parent_(parent) {}
   virtual ~BindingEnv() {}
   virtual string LookupVariable(StringPiece var);
-  void AddBinding(const string& key, const string& val);
+  void AddBinding(StringPiece key, const string& val);
 
 private:
-  map<string, string> bindings_;
+  typedef ExternalStringHashMap<string>::Type Bindings;
+  Bindings bindings_;
   Env* parent_;
 };
 
 /// A tokenized string that contains variable references.
 /// Can be evaluated relative to an Env.
 struct EvalString {
+  // XXX return...rope? vector<StringPiece>?
   string Evaluate(Env* env) const;
 
   void Clear() { parsed_.clear(); }
