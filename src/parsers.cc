@@ -70,7 +70,7 @@ bool ManifestParser::Parse(const string& filename, const string& input,
       EvalString val;
       if (!ParseLet(&key, &val, NULL, err))
         return false;
-      env_->AddBinding(state_->string_pool_.AddStr(key), val.Evaluate(env_).AsString());  // XXX
+      env_->AddBinding(state_->string_pool_.AddStr(key), val.Evaluate(env_));
       break;
     }
     case Lexer::INCLUDE:
@@ -268,7 +268,7 @@ bool ManifestParser::ParseEdge(string* err) {
       EvalString val;
       if (!ParseLet(&key, &val, NULL, err))
         return false;
-      env->AddBinding(state_->string_pool_.AddStr(key), val.Evaluate(env_).AsString());  // XXX
+      env->AddBinding(state_->string_pool_.AddStr(key), val.Evaluate(env_));
     } while (lexer_.PeekToken(Lexer::INDENT));
   }
 

@@ -178,17 +178,20 @@ bool Edge::AllInputsReady() const {
 /// An Env for an Edge, providing $in and $out.
 struct EdgeEnv : public Env {
   explicit EdgeEnv(Edge* edge) : edge_(edge) {}
-  virtual string LookupVariable(StringPiece var);
+  //virtual string LookupVariable(StringPiece var);
+  virtual const EvalRope& LookupVariable(StringPiece var);
 
   /// Given a span of Nodes, construct a list of paths suitable for a command
   /// line.  XXX here is where shell-escaping of e.g spaces should happen.
-  string MakePathList(vector<Node*>::iterator begin,
+  //string MakePathList(vector<Node*>::iterator begin,
+  const EvalRope& MakePathList(vector<Node*>::iterator begin,
                       vector<Node*>::iterator end);
 
   Edge* edge_;
 };
 
-string EdgeEnv::LookupVariable(StringPiece var) {
+const EvalRope& EdgeEnv::LookupVariable(StringPiece var) {
+//string EdgeEnv::LookupVariable(StringPiece var) {
   if (var == "in") {
     int explicit_deps_count = edge_->inputs_.size() - edge_->implicit_deps_ -
       edge_->order_only_deps_;
@@ -200,27 +203,30 @@ string EdgeEnv::LookupVariable(StringPiece var) {
   } else if (edge_->env_) {
     return edge_->env_->LookupVariable(var);
   } else {
-    // XXX shoudl we warn here?
-    return string();
+    // XXX should we warn here?
+    static EvalRope kEmptyRope;
+    return kEmptyRope;
   }
 }
 
-string EdgeEnv::MakePathList(vector<Node*>::iterator begin,
+const EvalRope& EdgeEnv::MakePathList(vector<Node*>::iterator begin,
+//string EdgeEnv::MakePathList(vector<Node*>::iterator begin,
                              vector<Node*>::iterator end) {
-  string result;
+  EvalRope result;
   for (vector<Node*>::iterator i = begin; i != end; ++i) {
     if (!result.empty())
-      result.push_back(' ');
+      result.AddPiece(" ");
     const string& path = (*i)->path();
     if (path.find(" ") != string::npos) {
-      result.append("\"");
-      result.append(path);
-      result.append("\"");
+      result.AddPiece("\"");
+      result.AddPiece(path);
+      result.AddPiece("\"");
     } else {
-      result.append(path);
+      result.AddPiece(path);
     }
   }
-  return result;
+  // XXX leak for now
+  return *new EvalRope(result);
 }
 
 string Edge::EvaluateCommand(bool incl_rsp_file) {

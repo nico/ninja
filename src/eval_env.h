@@ -31,6 +31,12 @@ using namespace std;
 struct EvalRope {
  public:
   void AddPiece(StringPiece s) { pieces_.push_back(s); }
+  void AddPieces(const EvalRope& s) {
+    // XXX if this bottlenecks, maybe have a real rope
+    pieces_.insert(pieces_.end(), s.pieces_.begin(), s.pieces_.end());
+  }
+
+  bool empty() const { return pieces_.empty(); }
 
   string AsString() const;
   bool operator==(const std::string& s) const;
@@ -45,7 +51,8 @@ inline bool operator==(const std::string& s, const EvalRope& r) {
 /// An interface for a scope for variable (e.g. "$foo") lookups.
 struct Env {
   virtual ~Env() {}
-  virtual string LookupVariable(StringPiece var) = 0;
+  //virtual string LookupVariable(StringPiece var) = 0;
+  virtual const EvalRope& LookupVariable(StringPiece var);
 };
 
 /// An Env which contains a mapping of variables to values
@@ -54,14 +61,14 @@ struct BindingEnv : public Env {
   BindingEnv() : parent_(NULL) {}
   explicit BindingEnv(Env* parent) : parent_(parent) {}
   virtual ~BindingEnv() {}
-  virtual string LookupVariable(StringPiece var);
-  //virtual const EvalRope& LookupVariable(StringPiece var);
-  void AddBinding(StringPiece key, const string& val);
-  //void AddBinding(StringPiece key, const EvalRope& val);
+  //virtual string LookupVariable(StringPiece var);
+  virtual const EvalRope& LookupVariable(StringPiece var);
+  //void AddBinding(StringPiece key, const string& val);
+  void AddBinding(StringPiece key, const EvalRope& val);
 
 private:
-  //typedef ExternalStringHashMap<EvalRope>::Type Bindings;
-  typedef ExternalStringHashMap<string>::Type Bindings;
+  typedef ExternalStringHashMap<EvalRope>::Type Bindings;
+  //typedef ExternalStringHashMap<string>::Type Bindings;
   Bindings bindings_;
   Env* parent_;
 };

@@ -38,16 +38,20 @@ bool EvalRope::operator==(const string& s) const {
   return l == 0;
 }
 
-string BindingEnv::LookupVariable(StringPiece var) {
+const EvalRope& BindingEnv::LookupVariable(StringPiece var) {
+//string BindingEnv::LookupVariable(StringPiece var) {
+  static EvalRope kEmptyRope;
+
   Bindings::iterator i = bindings_.find(var);
   if (i != bindings_.end())
     return i->second;
   if (parent_)
     return parent_->LookupVariable(var);
-  return "";
+  return kEmptyRope;
 }
 
-void BindingEnv::AddBinding(StringPiece key, const string& val) {
+void BindingEnv::AddBinding(StringPiece key, const EvalRope& val) {
+//void BindingEnv::AddBinding(StringPiece key, const string& val) {
   bindings_[key] = val;
 }
 
@@ -68,10 +72,8 @@ EvalRope EvalString::Evaluate(Env* env) const {
     if (i->second == RAW)
       result.AddPiece(i->first);
     else {
-      // XXX leak for now, to make sure the LookupVariable result doesn't
-      // disappear
-      string* s = new string(env->LookupVariable(i->first));
-      result.AddPiece(*s);
+      const EvalRope& r = env->LookupVariable(i->first);
+      result.AddPieces(r);
     }
   }
   return result;
