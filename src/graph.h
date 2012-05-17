@@ -149,7 +149,7 @@ struct Edge {
   /// Recompute whether a given single output should be marked dirty.
   /// Returns true if so.
   bool RecomputeOutputDirty(BuildLog* build_log, TimeStamp most_recent_input,
-                            Node* most_recent_node, const string& command,
+                            Node* most_recent_node, const EvalRope& command,
                             Node* output);
 
   /// Return true if all inputs' in-edges are ready.
@@ -159,6 +159,7 @@ struct Edge {
   /// If incl_rsp_file is enabled, the string will also contain the 
   /// full contents of a response file (if applicable)
   string EvaluateCommand(bool incl_rsp_file = false);  // XXX move to env, take env ptr
+  const EvalRope& EvaluateCommandRope(bool incl_rsp_file);
   string EvaluateDepFile();
   string GetDescription();
   

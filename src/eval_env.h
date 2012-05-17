@@ -40,12 +40,19 @@ struct EvalRope {
 
   string AsString() const;
   bool operator==(const std::string& s) const;
+  bool operator!=(const std::string& s) const {
+    return !(*this == s);
+  }
  private:
   std::vector<StringPiece> pieces_;
 };
 
 inline bool operator==(const std::string& s, const EvalRope& r) {
   return r == s;
+}
+
+inline bool operator!=(const std::string& s, const EvalRope& r) {
+  return !(r == s);
 }
 
 /// An interface for a scope for variable (e.g. "$foo") lookups.

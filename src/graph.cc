@@ -83,7 +83,8 @@ bool Edge::RecomputeDirty(State* state, DiskInterface* disk_interface,
   // date outputs, etc.  Visit all outputs and determine whether they're dirty.
   if (!dirty) {
     BuildLog* build_log = state ? state->build_log_ : 0;
-    string command = EvaluateCommand(true);
+    //string command = EvaluateCommand(true);
+    const EvalRope& command = EvaluateCommandRope(true);
 
     for (vector<Node*>::iterator i = outputs_.begin();
          i != outputs_.end(); ++i) {
@@ -115,7 +116,7 @@ bool Edge::RecomputeDirty(State* state, DiskInterface* disk_interface,
 bool Edge::RecomputeOutputDirty(BuildLog* build_log,
                                 TimeStamp most_recent_input,
                                 Node* most_recent_node,
-                                const string& command,
+                                const EvalRope& command,
                                 Node* output) {
   if (is_phony()) {
     // Phony edges don't write any output.  Outputs are only dirty if
@@ -235,6 +236,16 @@ string Edge::EvaluateCommand(bool incl_rsp_file) {
   if (incl_rsp_file && HasRspFile()) 
     command += ";rspfile=" + GetRspFileContent();
   return command;
+}
+
+const EvalRope& Edge::EvaluateCommandRope(bool incl_rsp_file) {
+  EdgeEnv env(this);
+  //const EvalRope& command = rule_->command().Evaluate(&env);
+  //if (incl_rsp_file && HasRspFile()) 
+  //  command += ";rspfile=" + GetRspFileContent();
+  //return command;
+  // XXX don't leak
+  return *new EvalRope(rule_->command().Evaluate(&env));
 }
 
 string Edge::EvaluateDepFile() {

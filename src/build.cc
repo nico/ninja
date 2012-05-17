@@ -408,7 +408,8 @@ void Plan::CleanNode(BuildLog* build_log, Node* node) {
       for (vector<Node*>::iterator ni = begin; ni != end; ++ni)
         if ((*ni)->mtime() > most_recent_input)
           most_recent_input = (*ni)->mtime();
-      string command = (*ei)->EvaluateCommand(true);
+      //string command = (*ei)->EvaluateCommand(true);
+      const EvalRope& command = (*ei)->EvaluateCommandRope(true);
 
       // Now, recompute the dirty state of each output.
       bool all_outputs_clean = true;
