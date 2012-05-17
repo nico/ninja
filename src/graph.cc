@@ -225,7 +225,7 @@ string EdgeEnv::MakePathList(vector<Node*>::iterator begin,
 
 string Edge::EvaluateCommand(bool incl_rsp_file) {
   EdgeEnv env(this);
-  string command = rule_->command().Evaluate(&env);
+  string command = rule_->command().Evaluate(&env).AsString();  // XXX
   if (incl_rsp_file && HasRspFile()) 
     command += ";rspfile=" + GetRspFileContent();
   return command;
@@ -233,12 +233,12 @@ string Edge::EvaluateCommand(bool incl_rsp_file) {
 
 string Edge::EvaluateDepFile() {
   EdgeEnv env(this);
-  return rule_->depfile().Evaluate(&env);
+  return rule_->depfile().Evaluate(&env).AsString();  // XXX
 }
 
 string Edge::GetDescription() {
   EdgeEnv env(this);
-  return rule_->description().Evaluate(&env);
+  return rule_->description().Evaluate(&env).AsString();  // XXX
 }
 
 bool Edge::HasRspFile() {
@@ -247,12 +247,12 @@ bool Edge::HasRspFile() {
 
 string Edge::GetRspFile() {
   EdgeEnv env(this);
-  return rule_->rspfile().Evaluate(&env);
+  return rule_->rspfile().Evaluate(&env).AsString();  // XXX
 }
 
 string Edge::GetRspFileContent() {
   EdgeEnv env(this);
-  return rule_->rspfile_content().Evaluate(&env);
+  return rule_->rspfile_content().Evaluate(&env).AsString();  // XXX
 }
 
 bool Edge::LoadDepFile(State* state, DiskInterface* disk_interface,

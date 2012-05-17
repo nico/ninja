@@ -70,7 +70,7 @@ bool ManifestParser::Parse(const string& filename, const string& input,
       EvalString val;
       if (!ParseLet(&key, &val, NULL, err))
         return false;
-      env_->AddBinding(state_->string_pool_.AddStr(key), val.Evaluate(env_));
+      env_->AddBinding(state_->string_pool_.AddStr(key), val.Evaluate(env_).AsString());  // XXX
       break;
     }
     case Lexer::INCLUDE:
@@ -166,7 +166,7 @@ bool ManifestParser::ParseDefault(string* err) {
     return lexer_.Error("expected target name", err);
 
   do {
-    string path = eval.Evaluate(env_);
+    string path = eval.Evaluate(env_).AsString();  // XXX
     string path_err;
     if (!CanonicalizePath(&path, &path_err))
       return lexer_.Error(path_err, err);
@@ -268,21 +268,21 @@ bool ManifestParser::ParseEdge(string* err) {
       EvalString val;
       if (!ParseLet(&key, &val, NULL, err))
         return false;
-      env->AddBinding(state_->string_pool_.AddStr(key), val.Evaluate(env_));
+      env->AddBinding(state_->string_pool_.AddStr(key), val.Evaluate(env_).AsString());  // XXX
     } while (lexer_.PeekToken(Lexer::INDENT));
   }
 
   Edge* edge = state_->AddEdge(rule);
   edge->env_ = env;
   for (vector<EvalString>::iterator i = ins.begin(); i != ins.end(); ++i) {
-    string path = i->Evaluate(env);
+    string path = i->Evaluate(env).AsString();  // XXX
     string path_err;
     if (!CanonicalizePath(&path, &path_err))
       return lexer_.Error(path_err, err);
     state_->AddIn(edge, path);
   }
   for (vector<EvalString>::iterator i = outs.begin(); i != outs.end(); ++i) {
-    string path = i->Evaluate(env);
+    string path = i->Evaluate(env).AsString();  // XXX
     string path_err;
     if (!CanonicalizePath(&path, &path_err))
       return lexer_.Error(path_err, err);
@@ -298,7 +298,7 @@ bool ManifestParser::ParseFileInclude(bool new_scope, string* err) {
   EvalString eval;
   if (!lexer_.ReadPath(&eval, NULL, err))
     return false;
-  string path = eval.Evaluate(env_);
+  string path = eval.Evaluate(env_).AsString();  // XXX
 
   string contents;
   string read_err;

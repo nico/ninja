@@ -14,6 +14,30 @@
 
 #include "eval_env.h"
 
+string EvalRope::AsString() const {
+  string result;
+  for (vector<StringPiece>::const_iterator i = pieces_.begin();
+      i != pieces_.end(); ++i) {
+    result.append(i->str_, i->len_);
+  }
+  return result;
+}
+
+bool EvalRope::operator==(const string& s) const {
+  const char* p = s.data();
+  int l = s.size();
+  for (vector<StringPiece>::const_iterator i = pieces_.begin();
+      i != pieces_.end(); ++i) {
+    if (i->len_ > l)
+      return false;
+    if (memcmp(p, i->str_, i->len_) != 0)
+      return false;
+    l -= i->len_;
+    p += i->len_;
+  }
+  return l == 0;
+}
+
 string BindingEnv::LookupVariable(StringPiece var) {
   Bindings::iterator i = bindings_.find(var);
   if (i != bindings_.end())
@@ -27,13 +51,28 @@ void BindingEnv::AddBinding(StringPiece key, const string& val) {
   bindings_[key] = val;
 }
 
-string EvalString::Evaluate(Env* env) const {
-  string result;
+//string EvalString::Evaluate(Env* env) const {
+//  string result;
+//  for (TokenList::const_iterator i = parsed_.begin(); i != parsed_.end(); ++i) {
+//    if (i->second == RAW)
+//      result.append(i->first.str_, i->first.len_);
+//    else
+//      result.append(env->LookupVariable(i->first));
+//  }
+//  return result;
+//}
+
+EvalRope EvalString::Evaluate(Env* env) const {
+  EvalRope result;
   for (TokenList::const_iterator i = parsed_.begin(); i != parsed_.end(); ++i) {
     if (i->second == RAW)
-      result.append(i->first.str_, i->first.len_);
-    else
-      result.append(env->LookupVariable(i->first));
+      result.AddPiece(i->first);
+    else {
+      // XXX leak for now, to make sure the LookupVariable result doesn't
+      // disappear
+      string* s = new string(env->LookupVariable(i->first));
+      result.AddPiece(*s);
+    }
   }
   return result;
 }

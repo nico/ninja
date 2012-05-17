@@ -24,6 +24,24 @@ using namespace std;
 #include "string_piece.h"
 #include "string_pool.h"
 
+// Not really a rope as it always has depth 1 for now
+// Delays conversion of EvalString::Evaluate() results to strings. Useful
+// since this can still be compared to a string and that's often all that's
+// needed.
+struct EvalRope {
+ public:
+  void AddPiece(StringPiece s) { pieces_.push_back(s); }
+
+  string AsString() const;
+  bool operator==(const std::string& s) const;
+ private:
+  std::vector<StringPiece> pieces_;
+};
+
+inline bool operator==(const std::string& s, const EvalRope& r) {
+  return r == s;
+}
+
 /// An interface for a scope for variable (e.g. "$foo") lookups.
 struct Env {
   virtual ~Env() {}
@@ -37,9 +55,12 @@ struct BindingEnv : public Env {
   explicit BindingEnv(Env* parent) : parent_(parent) {}
   virtual ~BindingEnv() {}
   virtual string LookupVariable(StringPiece var);
+  //virtual const EvalRope& LookupVariable(StringPiece var);
   void AddBinding(StringPiece key, const string& val);
+  //void AddBinding(StringPiece key, const EvalRope& val);
 
 private:
+  //typedef ExternalStringHashMap<EvalRope>::Type Bindings;
   typedef ExternalStringHashMap<string>::Type Bindings;
   Bindings bindings_;
   Env* parent_;
@@ -49,7 +70,9 @@ private:
 /// Can be evaluated relative to an Env.
 struct EvalString {
   // XXX return...rope? vector<StringPiece>?
-  string Evaluate(Env* env) const;
+  //string Evaluate(Env* env) const;
+
+  EvalRope Evaluate(Env* env) const;
 
   void Clear() { parsed_.clear(); }
   bool empty() const { return parsed_.empty(); }
