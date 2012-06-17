@@ -16,7 +16,7 @@
 #define NINJA_DEPFILE_PARSER_H_
 
 #include <string>
-#include <vector>
+#include <deque>
 using namespace std;
 
 #include "string_piece.h"
@@ -29,7 +29,7 @@ struct DepfileParser {
   bool Parse(string* content, string* err);
 
   StringPiece out_;
-  vector<StringPiece> ins_;
+  deque<StringPiece> ins_;
 };
 
 #endif // NINJA_DEPFILE_PARSER_H_

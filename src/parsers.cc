@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <deque>
+
 #include "graph.h"
 #include "metrics.h"
 #include "state.h"
@@ -179,7 +181,7 @@ bool ManifestParser::ParseDefault(string* err) {
 }
 
 bool ManifestParser::ParseEdge(string* err) {
-  vector<EvalString> ins, outs;
+  deque<EvalString> ins, outs;
 
   {
     EvalString out;
@@ -267,14 +269,14 @@ bool ManifestParser::ParseEdge(string* err) {
 
   Edge* edge = state_->AddEdge(rule);
   edge->env_ = env;
-  for (vector<EvalString>::iterator i = ins.begin(); i != ins.end(); ++i) {
+  for (deque<EvalString>::iterator i = ins.begin(); i != ins.end(); ++i) {
     string path = i->Evaluate(env);
     string path_err;
     if (!CanonicalizePath(&path, &path_err))
       return lexer_.Error(path_err, err);
     state_->AddIn(edge, path);
   }
-  for (vector<EvalString>::iterator i = outs.begin(); i != outs.end(); ++i) {
+  for (deque<EvalString>::iterator i = outs.begin(); i != outs.end(); ++i) {
     string path = i->Evaluate(env);
     string path_err;
     if (!CanonicalizePath(&path, &path_err))

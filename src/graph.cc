@@ -290,7 +290,7 @@ bool Edge::LoadDepFile(State* state, DiskInterface* disk_interface,
     inputs_.end() - order_only_deps_ - depfile.ins_.size();
 
   // Add all its in-edges.
-  for (vector<StringPiece>::iterator i = depfile.ins_.begin();
+  for (deque<StringPiece>::iterator i = depfile.ins_.begin();
        i != depfile.ins_.end(); ++i, ++implicit_dep) {
     if (!CanonicalizePath(const_cast<char*>(i->str_), &i->len_, err))
       return false;
