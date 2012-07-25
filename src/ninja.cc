@@ -454,6 +454,64 @@ int ToolCommands(Globals* globals, int argc, char* argv[]) {
   return 0;
 }
 
+// Replaces '\' with '\\' and '"' with '\"'.
+std::string EscapeForJsonDB(const std::string& s) {
+  std::string result;
+  result.reserve(s.size());
+  for (size_t i = 0; i < s.size(); ++i) {
+    if (s[i] == '\\')
+      result.append("\\\\");
+    else if (s[i] == '"')
+      result.append("\\\"");
+    else
+      result.push_back(s[i]);
+  }
+  return result;
+}
+
+void PrintJsonCommands(Edge* edge, set<Edge*>* seen, const char* cwd) {
+  if (!edge)
+    return;
+  if (!seen->insert(edge).second)
+    return;
+
+  for (vector<Node*>::iterator in = edge->inputs_.begin();
+       in != edge->inputs_.end(); ++in) {
+    PrintJsonCommands((*in)->in_edge(), seen, cwd);
+
+    // XXX: ...or just use only the first input? This prints one object (with
+    // complete linker command) for every .o file that's linked, which seems
+    // like overkill. Maybe not terrible?
+    if (!edge->is_phony()) {
+      printf("  { \"directory\": \"%s\",\n", EscapeForJsonDB(cwd).c_str());
+      printf("    \"command\": \"%s\",\n",
+             EscapeForJsonDB(edge->EvaluateCommand()).c_str());
+      printf("    \"file\": \"%s\" },\n",
+             EscapeForJsonDB((*in)->path()).c_str());
+    }
+  }
+}
+
+int ToolJsonDB(Globals* globals, int argc, char* argv[]) {
+  // See http://clang.llvm.org/docs/JSONCompilationDatabase.html
+  vector<Node*> nodes;
+  string err;
+  if (!CollectTargetsFromArgs(globals->state, argc, argv, &nodes, &err)) {
+    Error("%s", err.c_str());
+    return 1;
+  }
+
+  char* cwd = getcwd(NULL, 0);
+  puts("[\n");
+  set<Edge*> seen;
+  for (vector<Node*>::iterator in = nodes.begin(); in != nodes.end(); ++in)
+    PrintJsonCommands((*in)->in_edge(), &seen, cwd);
+  puts("]\n");
+  free(cwd);
+
+  return 0;
+}
+
 int ToolClean(Globals* globals, int argc, char* argv[]) {
   // The clean tool uses getopt, and expects argv[0] to contain the name of
   // the tool, i.e. "clean".
@@ -545,6 +603,8 @@ int ChooseTool(const string& tool_name, const Tool** tool_out) {
       Tool::RUN_AFTER_LOAD, ToolClean },
     { "commands", "list all commands required to rebuild given targets",
       Tool::RUN_AFTER_LOAD, ToolCommands },
+    { "jsondb", "list all commands in clang's compilation database format",
+      Tool::RUN_AFTER_LOAD, ToolJsonDB },
     { "graph", "output graphviz dot file for targets",
       Tool::RUN_AFTER_LOAD, ToolGraph },
     { "query", "show inputs/outputs for a path",
