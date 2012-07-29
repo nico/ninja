@@ -492,9 +492,24 @@ void RealCommandRunner::Abort() {
 }
 
 bool RealCommandRunner::CanRunMore() {
-  return ((int)subprocs_.running_.size()) < config_.parallelism
-    && ((subprocs_.running_.empty() || config_.max_load_average <= 0.0f)
-        || GetLoadAverage() < config_.max_load_average);
+  if (subprocs_.running_.empty())
+    return true;  // Always allow at least one child.
+
+  bool not_bound_by_parallelism =
+    (int)subprocs_.running_.size() < config_.parallelism;
+
+  bool not_bound_by_load_average = config_.max_load_average <= 0.0f ||
+                                   GetLoadAverage() < config_.max_load_average;
+
+  // XXX: Needs to be smarter (let children ipc their resource usage, require
+  // at least avg mem usage of last N children of free mem? require at least
+  // 5% of total available memory?)
+  // XXX: Can possibly ignore config_.parallelism if load avg and mem are set?
+  bool not_bound_by_memory = GetFreeMemoryBytes() > (100 << 20);  // 100 MB
+
+  return not_bound_by_parallelism &&
+         not_bound_by_load_average &&
+         not_bound_by_memory;
 }
 
 bool RealCommandRunner::StartCommand(Edge* edge) {

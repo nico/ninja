@@ -345,3 +345,47 @@ string ElideMiddle(const string& str, size_t width) {
   }
   return result;
 }
+
+#ifdef __APPLE__
+#include <mach/mach.h>
+
+// Based on:
+// http://www.publicsource.apple.com/source/system_cmds/system_cmds-541/vm_stat.tproj/vm_stat.c
+// (from 1986!)
+uint64_t GetFreeMemoryBytes_mac() {
+  mach_port_t port_self = mach_host_self();
+
+  vm_size_t page_size;
+  if (host_page_size(port_self, &page_size) != KERN_SUCCESS) {
+    page_size = 4096;
+    // warn? exit?
+  }
+
+  vm_statistics64_data_t mem_stat;
+  kern_return_t ret;
+  unsigned int count = HOST_VM_INFO64_COUNT;
+  if ((ret = host_statistics64(
+          port_self, HOST_VM_INFO64,
+          (host_info64_t)&mem_stat, &count) != KERN_SUCCESS)) {
+    // warn? exit?
+  }
+
+  uint64_t free_pages = mem_stat.free_count - mem_stat.speculative_count;
+  uint64_t free_bytes = free_pages * page_size;
+  return free_bytes;
+}
+#else
+uint64_t GetFreeMemoryBytes_todo() {
+  // Non-Mac systems always have exactly 8 Gigs of free ram
+  // (arbitrary, but greater than UINT_MAX).
+  return uint64_t(8) << 30;
+}
+#endif  // __APPLE__
+
+uint64_t GetFreeMemoryBytes() {
+#ifdef __APPLE__
+  return GetFreeMemoryBytes_mac();
+#else
+  return GetFreeMemoryBytes_todo();
+#endif  // __APPLE__
+}

@@ -71,6 +71,9 @@ double GetLoadAverage();
 /// exceeds @a width.
 string ElideMiddle(const string& str, size_t width);
 
+/// @return the available memory in bytes.
+uint64_t GetFreeMemoryBytes();
+
 #ifdef _MSC_VER
 #define snprintf _snprintf
 #define fileno _fileno
