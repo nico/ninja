@@ -505,7 +505,9 @@ bool RealCommandRunner::CanRunMore() {
   // at least avg mem usage of last N children of free mem? require at least
   // 5% of total available memory?)
   // XXX: Can possibly ignore config_.parallelism if load avg and mem are set?
-  bool not_bound_by_memory = GetFreeMemoryBytes() > (100 << 20);  // 100 MB
+  uint64_t free_mem = GetFreeMemoryBytes();
+  //printf("mem %llu\n", free_mem >> 20);
+  bool not_bound_by_memory = free_mem > (100 << 20);  // 100 MB
 
   return not_bound_by_parallelism &&
          not_bound_by_load_average &&
