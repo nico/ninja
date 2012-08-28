@@ -44,7 +44,11 @@ bool CanonicalizePath(char* path, size_t* len, string* err);
 /// Read a file to a string (in text mode: with CRLF conversion
 /// on Windows).
 /// Returns -errno and fills in \a err on error.
-int ReadFile(const string& path, string* contents, string* err);
+/// If @from_case_sensitve_file_system is not NULL, it's set to true
+/// if @path was stored on a case-sensitive file system, and to false
+/// else.
+int ReadFile(const string& path, string* contents, string* err,
+             bool* from_case_sensitve_file_system);
 
 /// Mark a file descriptor to not be inherited on exec()s.
 void SetCloseOnExec(int fd);

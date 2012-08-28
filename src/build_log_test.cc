@@ -75,7 +75,7 @@ TEST_F(BuildLogTest, FirstWriteAddsSignature) {
   ASSERT_EQ("", err);
   log.Close();
 
-  ASSERT_EQ(0, ReadFile(kTestFilename, &contents, &err));
+  ASSERT_EQ(0, ReadFile(kTestFilename, &contents, &err, NULL));
   ASSERT_EQ("", err);
   if (contents.size() >= kVersionPos)
     contents[kVersionPos] = 'X';
@@ -87,7 +87,7 @@ TEST_F(BuildLogTest, FirstWriteAddsSignature) {
   log.Close();
 
   contents.clear();
-  ASSERT_EQ(0, ReadFile(kTestFilename, &contents, &err));
+  ASSERT_EQ(0, ReadFile(kTestFilename, &contents, &err, NULL));
   ASSERT_EQ("", err);
   if (contents.size() >= kVersionPos)
     contents[kVersionPos] = 'X';

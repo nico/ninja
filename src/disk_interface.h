@@ -39,7 +39,8 @@ struct DiskInterface {
   virtual bool WriteFile(const string& path, const string& contents) = 0;
 
   /// Read a file to a string.  Fill in |err| on error.
-  virtual string ReadFile(const string& path, string* err) = 0;
+  virtual string ReadFile(const string& path, string* err,
+                          bool* from_case_sensitve_file_system) = 0;
 
   /// Remove the file named @a path. It behaves like 'rm -f path' so no errors
   /// are reported if it does not exists.
@@ -59,7 +60,8 @@ struct RealDiskInterface : public DiskInterface {
   virtual TimeStamp Stat(const string& path);
   virtual bool MakeDir(const string& path);
   virtual bool WriteFile(const string& path, const string& contents);
-  virtual string ReadFile(const string& path, string* err);
+  virtual string ReadFile(const string& path, string* err,
+                          bool* from_case_sensitve_file_system);
   virtual int RemoveFile(const string& path);
 };
 

@@ -142,9 +142,10 @@ bool RealDiskInterface::MakeDir(const string& path) {
   return true;
 }
 
-string RealDiskInterface::ReadFile(const string& path, string* err) {
+string RealDiskInterface::ReadFile(const string& path, string* err,
+                                   bool* from_case_sensitve_file_system) {
   string contents;
-  int ret = ::ReadFile(path, &contents, err);
+  int ret = ::ReadFile(path, &contents, err, from_case_sensitve_file_system);
   if (ret == -ENOENT) {
     // Swallow ENOENT.
     err->clear();

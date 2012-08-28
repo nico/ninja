@@ -77,7 +77,7 @@ TEST_F(DiskInterfaceTest, StatExistingFile) {
 
 TEST_F(DiskInterfaceTest, ReadFile) {
   string err;
-  EXPECT_EQ("", disk_.ReadFile("foobar", &err));
+  EXPECT_EQ("", disk_.ReadFile("foobar", &err, NULL));
   EXPECT_EQ("", err);
 
   const char* kTestFile = "testfile";
@@ -87,7 +87,7 @@ TEST_F(DiskInterfaceTest, ReadFile) {
   fprintf(f, "%s", kTestContent);
   ASSERT_EQ(0, fclose(f));
 
-  EXPECT_EQ(kTestContent, disk_.ReadFile(kTestFile, &err));
+  EXPECT_EQ(kTestContent, disk_.ReadFile(kTestFile, &err, NULL));
   EXPECT_EQ("", err);
 }
 
@@ -115,7 +115,10 @@ struct StatTest : public StateTestWithBuiltinRules,
     assert(false);
     return false;
   }
-  virtual string ReadFile(const string& path, string* err) {
+  virtual string ReadFile(const string& path, string* err,
+                          bool* from_case_sensitve_file_system) {
+    if (from_case_sensitve_file_system)
+      *from_case_sensitve_file_system = true;
     assert(false);
     return "";
   }

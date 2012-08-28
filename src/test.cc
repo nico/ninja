@@ -71,6 +71,11 @@ string GetSystemTempDir() {
 #endif
 }
 
+string str_tolower(string s) {
+  std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+  return s;
+}
+
 }  // anonymous namespace
 
 StateTestWithBuiltinRules::StateTestWithBuiltinRules() {
@@ -94,14 +99,16 @@ void AssertHash(const char* expected, uint64_t actual) {
   ASSERT_EQ(BuildLog::LogEntry::HashCommand(expected), actual);
 }
 
-void VirtualFileSystem::Create(const string& path, int time,
+void VirtualFileSystem::Create(const string& in_path, int time,
                                const string& contents) {
+  string path = is_case_sensitive_ ? in_path : str_tolower(in_path);
   files_[path].mtime = time;
   files_[path].contents = contents;
   files_created_.insert(path);
 }
 
-TimeStamp VirtualFileSystem::Stat(const string& path) {
+TimeStamp VirtualFileSystem::Stat(const string& in_path) {
+  string path = is_case_sensitive_ ? in_path : str_tolower(in_path);
   FileMap::iterator i = files_.find(path);
   if (i != files_.end())
     return i->second.mtime;
@@ -118,7 +125,11 @@ bool VirtualFileSystem::MakeDir(const string& path) {
   return true;  // success
 }
 
-string VirtualFileSystem::ReadFile(const string& path, string* err) {
+string VirtualFileSystem::ReadFile(const string& in_path, string* err,
+                                   bool* from_case_sensitve_file_system) {
+  string path = is_case_sensitive_ ? in_path : str_tolower(in_path);
+  if (from_case_sensitve_file_system)
+    *from_case_sensitve_file_system = is_case_sensitive_;
   files_read_.push_back(path);
   FileMap::iterator i = files_.find(path);
   if (i != files_.end())
@@ -126,7 +137,8 @@ string VirtualFileSystem::ReadFile(const string& path, string* err) {
   return "";
 }
 
-int VirtualFileSystem::RemoveFile(const string& path) {
+int VirtualFileSystem::RemoveFile(const string& in_path) {
+  string path = is_case_sensitive_ ? in_path : str_tolower(in_path);
   if (find(directories_made_.begin(), directories_made_.end(), path)
       != directories_made_.end())
     return -1;

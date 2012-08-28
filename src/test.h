@@ -41,6 +41,8 @@ void AssertHash(const char* expected, uint64_t actual);
 /// of disk state.  It also logs file accesses and directory creations
 /// so it can be used by tests to verify disk access patterns.
 struct VirtualFileSystem : public DiskInterface {
+  VirtualFileSystem() : is_case_sensitive_(true) {}
+
   /// "Create" a file with a given mtime and contents.
   void Create(const string& path, int time, const string& contents);
 
@@ -48,7 +50,8 @@ struct VirtualFileSystem : public DiskInterface {
   virtual TimeStamp Stat(const string& path);
   virtual bool WriteFile(const string& path, const string& contents);
   virtual bool MakeDir(const string& path);
-  virtual string ReadFile(const string& path, string* err);
+  virtual string ReadFile(const string& path, string* err,
+                          bool* from_case_sensitve_file_system);
   virtual int RemoveFile(const string& path);
 
   /// An entry for a single in-memory file.
@@ -63,6 +66,7 @@ struct VirtualFileSystem : public DiskInterface {
   FileMap files_;
   set<string> files_removed_;
   set<string> files_created_;
+  bool is_case_sensitive_;
 };
 
 struct ScopedTempDir {

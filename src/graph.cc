@@ -271,7 +271,9 @@ bool Edge::LoadDepFile(State* state, DiskInterface* disk_interface,
                        string* err) {
   METRIC_RECORD("depfile load");
   string path = EvaluateDepFile();
-  string content = disk_interface->ReadFile(path, err);
+  bool is_case_sensitive_filesystem;
+  string content = disk_interface->ReadFile(path, err,
+                                            &is_case_sensitive_filesystem);
   if (!err->empty())
     return false;
   if (content.empty())
@@ -287,9 +289,14 @@ bool Edge::LoadDepFile(State* state, DiskInterface* disk_interface,
   // Check that this depfile matches our output.
   StringPiece opath = StringPiece(outputs_[0]->path());
   if (opath != depfile.out_) {
-    *err = "expected depfile '" + path + "' to mention '" +
-      outputs_[0]->path() + "', got '" + depfile.out_.AsString() + "'";
-    return false;
+    if (is_case_sensitive_filesystem ||
+        // XXX ideally match the file system locale
+        strncasecmp(opath.str_, depfile.out_.str_,
+                    min(opath.len_, depfile.out_.len_)) != 0) {
+      *err = "expected depfile '" + path + "' to mention '" +
+        outputs_[0]->path() + "', got '" + depfile.out_.AsString() + "'";
+      return false;
+    }
   }
 
   inputs_.insert(inputs_.end() - order_only_deps_, depfile.ins_.size(), 0);

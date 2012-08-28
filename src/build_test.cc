@@ -517,6 +517,21 @@ TEST_F(BuildTest, DepFileParseError) {
             err);
 }
 
+// Regression test for https://github.com/martine/ninja/issues/402
+TEST_F(BuildTest, DepFileCaseDifference) {
+  // Simulate having a dep file that was created for Foo.c, and subsequently
+  // renaming Foo.c to foo.c.
+  fs_.is_case_sensitive_ = false;
+  string err;
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+"rule cc\n  command = cc $in\n  depfile = $out.d\n"
+"build foo.o: cc foo.c\n"));
+  fs_.Create("foo.c", now_, "");
+  fs_.Create("Foo.o.d", now_, "Foo.o: foo.c\n");
+  EXPECT_TRUE(builder_.AddTarget("foo.o", &err));
+  ASSERT_EQ("", err);
+}
+
 TEST_F(BuildTest, OrderOnlyDeps) {
   string err;
   ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,

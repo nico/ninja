@@ -36,6 +36,11 @@
 
 #if defined(__APPLE__) || defined(__FreeBSD__)
 #include <sys/sysctl.h>
+
+#include <sys/attr.h>
+#include <sys/param.h>
+#include <sys/mount.h>
+
 #elif defined(linux)
 #include <sys/sysinfo.h>
 #endif
@@ -170,7 +175,12 @@ bool CanonicalizePath(char* path, size_t* len, string* err) {
   return true;
 }
 
-int ReadFile(const string& path, string* contents, string* err) {
+struct vol_caps_buf_t {
+    u_int32_t size;
+    vol_capabilities_attr_t caps;
+} vol_caps_buf_t;
+
+int ReadFile(const string& path, string* contents, string* err, bool* b) {
   FILE* f = fopen(path.c_str(), "r");
   if (!f) {
     err->assign(strerror(errno));
@@ -188,6 +198,28 @@ int ReadFile(const string& path, string* contents, string* err) {
     fclose(f);
     return -errno;
   }
+
+  if (b) {
+#if defined(__APPLE__)
+    struct statfs statbuf;
+    fstatfs(fileno(f), &statbuf);  // XXX error-check
+
+    struct attrlist alist = {};
+    alist.bitmapcount = ATTR_BIT_MAP_COUNT;
+    alist.volattr = ATTR_VOL_CAPABILITIES;
+    struct vol_caps_buf_t v;
+    
+    getattrlist(statbuf.f_mntonname, &alist, &v, sizeof(v), 0); // XXX error
+    
+    *b = (v.caps.valid[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_CASE_SENSITIVE) &&
+         (v.caps.capabilities[VOL_CAPABILITIES_FORMAT] &
+              VOL_CAP_FMT_CASE_SENSITIVE);
+#else
+    // XXX non-mac
+    *b = true;
+#endif
+  }
+
   fclose(f);
   return 0;
 }
