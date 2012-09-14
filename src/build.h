@@ -261,6 +261,15 @@ struct BuildStatus {
   mutable RateInfo overall_rate_;
   mutable SlidingRateInfo current_rate_;
 
+  struct Status {
+    Status(Edge* edge = NULL) : edge(edge) { watch.Restart(); }
+    Edge* edge;
+    std::string message;
+    Stopwatch watch;
+  };
+  std::vector<Status> lines_;
+  bool at_bottom_;
+
 #ifdef _WIN32
   void* console_;
 #endif

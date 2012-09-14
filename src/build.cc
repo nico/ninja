@@ -82,6 +82,8 @@ BuildStatus::BuildStatus(const BuildConfig& config)
       started_edges_(0), finished_edges_(0), total_edges_(0),
       have_blank_line_(true), progress_status_format_(NULL),
       overall_rate_(), current_rate_(config.parallelism) {
+  lines_.resize(config.parallelism);
+  at_bottom_ = false;
 #ifndef _WIN32
   const char* term = getenv("TERM");
   smart_terminal_ = isatty(1) && term && string(term) != "dumb";
@@ -114,6 +116,12 @@ void BuildStatus::BuildEdgeStarted(Edge* edge) {
   running_edges_.insert(make_pair(edge, start_time));
   ++started_edges_;
 
+  for (size_t i = 0; i < lines_.size(); ++i)
+    if (!lines_[i].edge) {
+      lines_[i] = Status(edge);
+      break;
+    }
+
   PrintStatus(edge);
 }
 
@@ -132,6 +140,12 @@ void BuildStatus::BuildEdgeFinished(Edge* edge,
 
   if (config_.verbosity == BuildConfig::QUIET)
     return;
+
+  for (size_t i = 0; i < lines_.size(); ++i)
+    if (lines_[i].edge == edge) {
+      lines_[i] = Status();
+      break;
+    }
 
   if (smart_terminal_)
     PrintStatus(edge);
@@ -274,11 +288,18 @@ void BuildStatus::PrintStatus(Edge* edge) {
 #endif
   }
 
+  for (size_t i = 0; i < lines_.size(); ++i)
+    if (lines_[i].edge == edge) {
+      lines_[i].message = to_print;
+      break;
+    }
+
   if (finished_edges_ == 0) {
     overall_rate_.Restart();
     current_rate_.Restart();
   }
-  to_print = FormatProgressStatus(progress_status_format_) + to_print;
+  std::string progress = FormatProgressStatus(progress_status_format_);
+  //to_print = FormatProgressStatus(progress_status_format_) + to_print;
 
   if (smart_terminal_ && !force_full_command) {
 #ifndef _WIN32
@@ -297,7 +318,23 @@ void BuildStatus::PrintStatus(Edge* edge) {
 
   if (smart_terminal_ && !force_full_command) {
 #ifndef _WIN32
-    printf("%s", to_print.c_str());
+    const char* kUp = "\x1B[%zdA"; char buf[30];
+    snprintf(buf, sizeof(buf), kUp, lines_.size());
+
+    if (at_bottom_)
+      printf("%s", buf);
+    at_bottom_ = true;
+
+    for (size_t i = 0; i < lines_.size(); ++i) {
+      // XXX elide
+      if (lines_[i].edge) {
+        printf("%4.1f ", lines_[i].watch.Elapsed());
+        printf("%s", lines_[i].message.c_str());
+      }
+      printf("\x1B[K");  // Clear to end of line.
+      printf("\n");
+    }
+    printf("%s", progress.c_str());
     printf("\x1B[K");  // Clear to end of line.
     fflush(stdout);
     have_blank_line_ = false;
