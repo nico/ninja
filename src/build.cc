@@ -318,7 +318,8 @@ void BuildStatus::PrintStatus(Edge* edge) {
 
   if (smart_terminal_ && !force_full_command) {
 #ifndef _WIN32
-    const char* kUp = "\x1B[%zdA"; char buf[30];
+    const char* kUp = "\x1B[%zdF";  // A: up. F: up in first col.
+    char buf[30];
     snprintf(buf, sizeof(buf), kUp, lines_.size());
 
     if (at_bottom_)
@@ -330,6 +331,8 @@ void BuildStatus::PrintStatus(Edge* edge) {
       if (lines_[i].edge) {
         printf("%4.1f ", lines_[i].watch.Elapsed());
         printf("%s", lines_[i].message.c_str());
+      } else {
+        printf("     (pending)");
       }
       printf("\x1B[K");  // Clear to end of line.
       printf("\n");
