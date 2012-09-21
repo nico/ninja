@@ -748,6 +748,7 @@ bool Builder::Build(string* err) {
     if (pending_commands) {
       ExitStatus status;
       string output;
+      // XXX wait for command or sigalarm
       Edge* edge = command_runner_->WaitForCommand(&status, &output);
       if (edge && status != ExitInterrupted) {
         bool success = (status == ExitSuccess);

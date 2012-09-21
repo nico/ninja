@@ -252,6 +252,8 @@ bool SubprocessSet::DoWork() {
     }
   }
 
+  // XXX pselect with timeout? (and ppoll() on linux, GetQueuedCompletionStatus
+  //     on win)
   int ret = pselect(nfds, &set, 0, 0, 0, &old_mask_);
   if (ret == -1) {
     if (errno != EINTR) {
