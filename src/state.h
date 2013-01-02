@@ -97,7 +97,7 @@ struct State {
 
   Node* GetNode(StringPiece path);
   Node* LookupNode(StringPiece path) {
-    METRIC_RECORD("lookup node");
+    //METRIC_RECORD("lookup node");
     //Paths::iterator i = paths_.find(path);
     //if (i != paths_.end())
       //return i->second;
