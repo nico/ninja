@@ -26,7 +26,10 @@
 
 ManifestParser::ManifestParser(State* state, FileReader* file_reader)
   : state_(state), file_reader_(file_reader) {
-  env_ = &state->bindings_;
+  if (state)
+    env_ = &state->bindings_;
+  else
+    env_ = NULL;
 }
 bool ManifestParser::Load(const string& filename, string* err) {
   string contents;

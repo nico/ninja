@@ -105,7 +105,8 @@ Node* State::GetNode(StringPiece path) {
   if (node)
     return node;
   node = new Node(path.AsString());
-  paths_[node->path()] = node;
+  //paths_[node->path()] = node;
+  paths_.insert(Paths::value_type(node->path(), node));
   return node;
 }
 

@@ -47,51 +47,27 @@ unsigned int MurmurHash2(const void* key, size_t len) {
   return h;
 }
 
-#ifdef _MSC_VER
-#include <hash_map>
 
-using stdext::hash_map;
-using stdext::hash_compare;
-
-struct StringPieceCmp : public hash_compare<StringPiece> {
-  size_t operator()(const StringPiece& key) const {
-    return MurmurHash2(key.str_, key.len_);
-  }
-  bool operator()(const StringPiece& a, const StringPiece& b) const {
-    int cmp = strncmp(a.str_, b.str_, min(a.len_, b.len_));
-    if (cmp < 0) {
-      return true;
-    } else if (cmp > 0) {
-      return false;
-    } else {
-      return a.len_ < b.len_;
-    }
-  }
+template <class V>
+struct node {
+  std::pair<StringPiece, V> val;
+  node *next;
 };
 
+#define NHASH 98317
+
+static inline unsigned hash(const char *p, unsigned l) {
+#if 0
+#define MULT 31
+  unsigned h = 0;
+  for (unsigned i = 0; i < l; ++i)
+    h = MULT * h + *(p++);
+  return h % NHASH;
 #else
-
-#include <ext/hash_map>
-
-using __gnu_cxx::hash_map;
-
-namespace __gnu_cxx {
-template<>
-struct hash<std::string> {
-  size_t operator()(const std::string& s) const {
-    return hash<const char*>()(s.c_str());
-  }
-};
-
-template<>
-struct hash<StringPiece> {
-  size_t operator()(StringPiece key) const {
-    return MurmurHash2(key.str_, key.len_);
-  }
-};
-
-}
+  return MurmurHash2(p, l) % NHASH;
 #endif
+}
+
 
 /// A template for hash_maps keyed by a StringPiece whose string is
 /// owned externally (typically by the values).  Use like:
@@ -99,11 +75,96 @@ struct hash<StringPiece> {
 /// mapping StringPiece => Foo*.
 template<typename V>
 struct ExternalStringHashMap {
-#ifdef _MSC_VER
-  typedef hash_map<StringPiece, V, StringPieceCmp> Type;
-#else
-  typedef hash_map<StringPiece, V> Type;
-#endif
+  class Type {
+    node<V>** bin;
+    int n_size;
+   public:
+    class Iterator {
+      Type *container;
+      int i;
+      node<V>* n;
+     public:
+      Iterator(Type *container, int i, node<V>* p)
+          : container(container), i(i), n(p) {
+      }
+      pair<StringPiece, V> *operator->() {
+        return &n->val;
+      }
+      Iterator& operator++() {
+        if (n->next) {
+          n = n->next;
+          return *this;
+        }
+        int j;
+        for (j = i + 1; j < NHASH && container->bin[j] == NULL; ++j)
+          ;
+        if (j < NHASH) {
+          i = j;
+          n = container->bin[j];
+          return *this;
+        }
+        i = NHASH;
+        n = NULL;
+        return *this;
+      }
+      bool operator!=(const Iterator &rhs) {
+        return !(i == rhs.i && n == rhs.n);
+      }
+    };
+    typedef Iterator iterator;
+    typedef std::pair<StringPiece, V> value_type;
+
+    Type() : n_size(0) {
+      bin = (node<V>**)malloc(NHASH * sizeof(node<V>*));
+      memset(bin, 0, NHASH * sizeof(node<V>*));
+    }
+    ~Type() {
+      free(bin);
+    }
+
+    iterator find(StringPiece key) {
+      unsigned h = hash(key.str_, key.len_);
+      for (node<V>* p = bin[h]; p != NULL; p = p->next)
+        if (p->val.first == key)
+          return Iterator(this, h, p);
+      return end();
+    }
+    iterator insert(value_type v) {
+      unsigned h = hash(v.first.str_, v.first.len_);
+      node<V>* p;
+      for (p = bin[h]; p != NULL; p = p->next)
+        if (p->val.first == v.first) {
+          p->val.second = v.second;
+          return Iterator(this, h, p);
+        }
+      p = (node<V> *) malloc(sizeof(node<V>));
+      p->val = v;
+      p->next = bin[h];
+      bin[h] = p;
+      ++n_size;
+      return Iterator(this, h, p);
+    }
+
+    iterator begin() {
+      int i;
+      for (i = 0; i < NHASH && bin[i] == NULL; ++i)
+        ;
+      if (i < NHASH) return Iterator(this, i, bin[i]);
+      return end();
+    }
+
+    iterator end() {
+      return Iterator(this, NHASH, NULL);
+    }
+    //V& operator[](StringPiece key);
+
+    size_t size() const {
+      return n_size;
+    }
+    size_t bucket_count() {
+      return NHASH;
+    }
+  };
 };
 
 #endif // NINJA_MAP_H_
