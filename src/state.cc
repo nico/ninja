@@ -110,14 +110,6 @@ Node* State::GetNode(StringPiece path) {
   return node;
 }
 
-Node* State::LookupNode(StringPiece path) {
-  METRIC_RECORD("lookup node");
-  Paths::iterator i = paths_.find(path);
-  if (i != paths_.end())
-    return i->second;
-  return NULL;
-}
-
 Node* State::SpellcheckNode(const string& path) {
   const bool kAllowReplacements = true;
   const int kMaxValidEditDistance = 3;

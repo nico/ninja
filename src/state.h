@@ -24,6 +24,7 @@ using namespace std;
 
 #include "eval_env.h"
 #include "hash_map.h"
+#include "metrics.h"
 
 struct Edge;
 struct Node;
@@ -95,7 +96,13 @@ struct State {
   Edge* AddEdge(const Rule* rule, Pool* pool);
 
   Node* GetNode(StringPiece path);
-  Node* LookupNode(StringPiece path);
+  Node* LookupNode(StringPiece path) {
+    METRIC_RECORD("lookup node");
+    Paths::iterator i = paths_.find(path);
+    if (i != paths_.end())
+      return i->second;
+    return NULL;
+  }
   Node* SpellcheckNode(const string& path);
 
   void AddIn(Edge* edge, StringPiece path);
