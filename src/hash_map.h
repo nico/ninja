@@ -129,6 +129,15 @@ struct ExternalStringHashMap {
           return Iterator(this, h, p);
       return end();
     }
+
+    V find_or_null(StringPiece key) {
+      unsigned h = hash(key.str_, key.len_);
+      for (node<V>* p = bin[h]; p != NULL; p = p->next)
+        if (p->val.first == key)
+          return p->val.second;
+      return NULL;
+    }
+
     iterator insert(value_type v) {
       unsigned h = hash(v.first.str_, v.first.len_);
       node<V>* p;

@@ -98,10 +98,11 @@ struct State {
   Node* GetNode(StringPiece path);
   Node* LookupNode(StringPiece path) {
     METRIC_RECORD("lookup node");
-    Paths::iterator i = paths_.find(path);
-    if (i != paths_.end())
-      return i->second;
-    return NULL;
+    //Paths::iterator i = paths_.find(path);
+    //if (i != paths_.end())
+      //return i->second;
+    //return NULL;
+    return paths_.find_or_null(path);
   }
   Node* SpellcheckNode(const string& path);
 
