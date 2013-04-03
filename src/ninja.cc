@@ -70,6 +70,9 @@ struct Globals {
   State* state;
 };
 
+bool OpenDepsLog(DepsLog* deps_log, const string& build_dir,
+                 Globals* globals, DiskInterface* disk_interface);
+
 /// The type of functions that are the entry points to tools (subcommands).
 typedef int (*ToolFunc)(Globals*, int, char**);
 
@@ -512,6 +515,44 @@ int ToolUrtle(Globals* globals, int argc, char** argv) {
   return 0;
 }
 
+int ToolDeps(Globals* globals, int argc, char** argv) {
+  // Since this runs RUN_AFTER_LOAD, -C will already have chdir()'d to the right
+  // directory.
+  RealDiskInterface disk_interface;
+  const string build_dir = globals->state->bindings_.LookupVariable("builddir");
+
+  DepsLog deps_log;
+  globals->config->dry_run = true;
+  if (!OpenDepsLog(&deps_log, build_dir, globals, &disk_interface))
+    return 1;
+
+  vector<Node*> nodes;
+  if (argc == 0) {
+    nodes = deps_log.nodes();
+  } else {
+    string err;
+    if (!CollectTargetsFromArgs(globals->state, argc, argv, &nodes, &err)) {
+      Error("%s", err.c_str());
+      return 1;
+    }
+  }
+
+  for (vector<Node*>::iterator it = nodes.begin(), end = nodes.end(); it != end;
+       ++it) {
+    DepsLog::Deps* deps = deps_log.GetDeps(*it);
+    if (!deps) {
+      printf("%s: deps not found\n", (*it)->path().c_str());
+      continue;
+    }
+    printf("%s: mtime %d, #deps %d\n", (*it)->path().c_str(), deps->mtime,
+           deps->node_count);
+    for (int i = 0; i < deps->node_count; ++i)
+      printf("    %s\n", deps->nodes[i]->path().c_str());
+  }
+
+  return 0;
+}
+
 /// Find the function to execute for \a tool_name and return it via \a func.
 /// If there is no tool to run (e.g.: unknown tool), returns an exit code.
 int ChooseTool(const string& tool_name, const Tool** tool_out) {
@@ -528,6 +569,8 @@ int ChooseTool(const string& tool_name, const Tool** tool_out) {
       Tool::RUN_AFTER_LOAD, ToolClean },
     { "commands", "list all commands required to rebuild given targets",
       Tool::RUN_AFTER_LOAD, ToolCommands },
+    { "deps", "show dependencies stored in the deps log",
+      Tool::RUN_AFTER_LOAD, ToolDeps },
     { "graph", "output graphviz dot file for targets",
       Tool::RUN_AFTER_LOAD, ToolGraph },
     { "query", "show inputs/outputs for a path",
