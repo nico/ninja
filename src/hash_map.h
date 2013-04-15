@@ -57,7 +57,7 @@ unsigned int MurmurHash2(const void* key, size_t len) {
 /// mapping StringPiece => Foo*.
 template<typename V>
 struct ExternalStringHashMap {
-  typedef llvm::StringMap<V> Type;
+  typedef llvm::StringMap<V, llvm::BumpPtrAllocator> Type;
 };
 
 #endif // NINJA_MAP_H_
