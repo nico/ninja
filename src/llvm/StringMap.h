@@ -14,7 +14,7 @@
 #ifndef LLVM_ADT_STRINGMAP_H
 #define LLVM_ADT_STRINGMAP_H
 
-#include "StringRef.h"
+#include "../string_piece.h"
 #include "Allocator.h"
 #include <cstring>
 
@@ -76,12 +76,12 @@ protected:
   /// specified bucket will be non-null.  Otherwise, it will be null.  In either
   /// case, the FullHashValue field of the bucket will be set to the hash value
   /// of the string.
-  unsigned LookupBucketFor(StringRef Key);
+  unsigned LookupBucketFor(StringPiece Key);
 
   /// FindKey - Look up the bucket that contains the specified key. If it exists
   /// in the map, return the bucket number of the key.  Otherwise return -1.
   /// This does not modify the map.
-  int FindKey(StringRef Key) const;
+  int FindKey(StringPiece Key) const;
 
   /// RemoveKey - Remove the specified StringMapEntry from the table, but do not
   /// delete it.  This aborts if the value isn't in the table.
@@ -89,7 +89,7 @@ protected:
 
   /// RemoveKey - Remove the StringMapEntry for the specified key from the
   /// table, returning it.  If the key is not in the table, this returns null.
-  StringMapEntryBase *RemoveKey(StringRef Key);
+  StringMapEntryBase *RemoveKey(StringPiece Key);
 private:
   void init(unsigned Size);
 public:
@@ -117,8 +117,8 @@ public:
   StringMapEntry(unsigned strLen, const ValueTy &V)
     : StringMapEntryBase(strLen), second(V) {}
 
-  StringRef getKey() const {
-    return StringRef(getKeyData(), getKeyLength());
+  StringPiece getKey() const {
+    return StringPiece(getKeyData(), getKeyLength());
   }
 
   const ValueTy &getValue() const { return second; }
@@ -131,7 +131,7 @@ public:
   /// StringMapEntry object.
   const char *getKeyData() const {return reinterpret_cast<const char*>(this+1);}
 
-  StringRef first() const { return StringRef(getKeyData(), getKeyLength()); }
+  StringPiece first() const { return StringPiece(getKeyData(), getKeyLength()); }
 
   /// Create - Create a StringMapEntry for the specified key and default
   /// construct the value.
@@ -280,13 +280,13 @@ public:
     return const_iterator(TheTable+NumBuckets, true);
   }
 
-  iterator find(StringRef Key) {
+  iterator find(StringPiece Key) {
     int Bucket = FindKey(Key);
     if (Bucket == -1) return end();
     return iterator(TheTable+Bucket, true);
   }
 
-  const_iterator find(StringRef Key) const {
+  const_iterator find(StringPiece Key) const {
     int Bucket = FindKey(Key);
     if (Bucket == -1) return end();
     return const_iterator(TheTable+Bucket, true);
@@ -294,18 +294,18 @@ public:
 
   /// lookup - Return the entry for the specified key, or a default
   /// constructed value if no such entry exists.
-  ValueTy lookup(StringRef Key) const {
+  ValueTy lookup(StringPiece Key) const {
     const_iterator it = find(Key);
     if (it != end())
       return it->second;
     return ValueTy();
   }
 
-  ValueTy &operator[](StringRef Key) {
+  ValueTy &operator[](StringPiece Key) {
     return GetOrCreateValue(Key).getValue();
   }
 
-  size_type count(StringRef Key) const {
+  size_type count(StringPiece Key) const {
     return find(Key) == end() ? 0 : 1;
   }
 
@@ -350,7 +350,7 @@ public:
   /// exists, return it.  Otherwise, default construct a value, insert it, and
   /// return.
   template <typename InitTy>
-  MapEntryTy &GetOrCreateValue(StringRef Key, InitTy Val) {
+  MapEntryTy &GetOrCreateValue(StringPiece Key, InitTy Val) {
     unsigned BucketNo = LookupBucketFor(Key);
     StringMapEntryBase *&Bucket = TheTable[BucketNo];
     if (Bucket && Bucket != getTombstoneVal())
@@ -372,7 +372,7 @@ public:
     return *NewItem;
   }
 
-  MapEntryTy &GetOrCreateValue(StringRef Key) {
+  MapEntryTy &GetOrCreateValue(StringPiece Key) {
     return GetOrCreateValue(Key, ValueTy());
   }
 
@@ -388,7 +388,7 @@ public:
     V.Destroy(Allocator);
   }
 
-  bool erase(StringRef Key) {
+  bool erase(StringPiece Key) {
     iterator I = find(Key);
     if (I == end()) return false;
     erase(I);

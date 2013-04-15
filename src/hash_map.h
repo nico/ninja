@@ -49,51 +49,7 @@ unsigned int MurmurHash2(const void* key, size_t len) {
   return h;
 }
 
-#ifdef _MSC_VER
-#include <hash_map>
-
-using stdext::hash_map;
-using stdext::hash_compare;
-
-struct StringPieceCmp : public hash_compare<StringPiece> {
-  size_t operator()(const StringPiece& key) const {
-    return MurmurHash2(key.str_, key.len_);
-  }
-  bool operator()(const StringPiece& a, const StringPiece& b) const {
-    int cmp = strncmp(a.str_, b.str_, min(a.len_, b.len_));
-    if (cmp < 0) {
-      return true;
-    } else if (cmp > 0) {
-      return false;
-    } else {
-      return a.len_ < b.len_;
-    }
-  }
-};
-
-#else
-
-#include <ext/hash_map>
-
-using __gnu_cxx::hash_map;
-
-namespace __gnu_cxx {
-template<>
-struct hash<std::string> {
-  size_t operator()(const std::string& s) const {
-    return hash<const char*>()(s.c_str());
-  }
-};
-
-template<>
-struct hash<StringPiece> {
-  size_t operator()(StringPiece key) const {
-    return MurmurHash2(key.str_, key.len_);
-  }
-};
-
-}
-#endif
+#include "llvm/StringMap.h"
 
 /// A template for hash_maps keyed by a StringPiece whose string is
 /// owned externally (typically by the values).  Use like:
@@ -101,11 +57,7 @@ struct hash<StringPiece> {
 /// mapping StringPiece => Foo*.
 template<typename V>
 struct ExternalStringHashMap {
-#ifdef _MSC_VER
-  typedef hash_map<StringPiece, V, StringPieceCmp> Type;
-#else
-  typedef hash_map<StringPiece, V> Type;
-#endif
+  typedef llvm::StringMap<V> Type;
 };
 
 #endif // NINJA_MAP_H_

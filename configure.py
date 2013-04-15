@@ -94,7 +94,10 @@ def doc(filename):
 def cc(name, **kwargs):
     return n.build(built(name + objext), 'cxx', src(name + '.c'), **kwargs)
 def cxx(name, **kwargs):
-    return n.build(built(name + objext), 'cxx', src(name + '.cc'), **kwargs)
+    ext = '.cc'
+    if 'llvm/' in name:
+        ext = '.cpp'
+    return n.build(built(name + objext), 'cxx', src(name + ext), **kwargs)
 def binary(name):
     if platform.is_windows():
         exe = name + '.exe'
@@ -135,6 +138,8 @@ else:
               '-Wno-unused-parameter',
               '-fno-rtti',
               '-fno-exceptions',
+              '-D__STDC_LIMIT_MACROS',
+              '-D__STDC_CONSTANT_MACROS',
               '-fvisibility=hidden', '-pipe',
               '-Wno-missing-field-initializers',
               '-DNINJA_PYTHON="%s"' % options.with_python]
@@ -273,6 +278,7 @@ for name in ['build',
              'graphviz',
              'lexer',
              'line_printer',
+             'llvm/StringMap',
              'manifest_parser',
              'metrics',
              'state',

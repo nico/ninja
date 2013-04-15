@@ -134,7 +134,7 @@ Node* State::SpellcheckNode(const string& path) {
   Node* result = NULL;
   for (Paths::iterator i = paths_.begin(); i != paths_.end(); ++i) {
     int distance = EditDistance(
-        i->first, path, kAllowReplacements, kMaxValidEditDistance);
+        i->getKey(), path, kAllowReplacements, kMaxValidEditDistance);
     if (distance < min_distance && i->second) {
       min_distance = distance;
       result = i->second;
