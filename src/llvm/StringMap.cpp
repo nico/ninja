@@ -16,6 +16,8 @@
 #include <cassert>
 using namespace llvm;
 
+#include "../hash_map.h"
+
 StringMapImpl::StringMapImpl(unsigned InitSize, unsigned itemSize) {
   ItemSize = itemSize;
   
@@ -60,7 +62,8 @@ unsigned StringMapImpl::LookupBucketFor(StringPiece Name) {
     init(16);
     HTSize = NumBuckets;
   }
-  unsigned FullHashValue = HashString(Name);
+  //unsigned FullHashValue = HashString(Name);
+  unsigned FullHashValue = MurmurHash2(Name.str_, Name.len_);
   unsigned BucketNo = FullHashValue & (HTSize-1);
   unsigned *HashTable = (unsigned *)(TheTable + NumBuckets + 1);
 
@@ -115,7 +118,8 @@ unsigned StringMapImpl::LookupBucketFor(StringPiece Name) {
 int StringMapImpl::FindKey(StringPiece Key) const {
   unsigned HTSize = NumBuckets;
   if (HTSize == 0) return -1;  // Really empty table?
-  unsigned FullHashValue = HashString(Key);
+  //unsigned FullHashValue = HashString(Key);
+  unsigned FullHashValue = MurmurHash2(Key.str_, Key.len_);
   unsigned BucketNo = FullHashValue & (HTSize-1);
   unsigned *HashTable = (unsigned *)(TheTable + NumBuckets + 1);
 
