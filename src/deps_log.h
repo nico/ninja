@@ -59,9 +59,9 @@ struct State;
 ///      to verify the stored data is up-to-date.)
 /// If two records reference the same output the latter one in the file
 /// wins, allowing updates to just be appended to the file.  A separate
-/// repacking step can run occasionally to remove dead records.
+/// repacking step will run occasionally to remove dead records.
 struct DepsLog {
-  DepsLog() : dead_record_count_(0), file_(NULL) {}
+  DepsLog() : needs_recompaction_(false), file_(NULL) {}
   ~DepsLog();
 
   // Writing (build-time) interface.
@@ -91,9 +91,7 @@ struct DepsLog {
   // Write a node name record, assigning it an id.
   bool RecordId(Node* node);
 
-  /// Number of deps record read while loading the file that ended up
-  /// being unused (due to a latter entry superceding it).
-  int dead_record_count_;
+  bool needs_recompaction_;
 
   FILE* file_;
   /// Maps id -> Node.

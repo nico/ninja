@@ -37,6 +37,12 @@ DepsLog::~DepsLog() {
 }
 
 bool DepsLog::OpenForWrite(const string& path, string* err) {
+  if (needs_recompaction_) {
+    Close();
+    if (!Recompact(path, err))
+      return false;
+  }
+
   file_ = fopen(path.c_str(), "ab");
   if (!file_) {
     *err = strerror(errno);
@@ -152,6 +158,9 @@ bool DepsLog::Load(const string& path, State* state, string* err) {
     return true;
   }
 
+  int unique_dep_record_count = 0;
+  int total_dep_record_count = 0;
+
   for (;;) {
     uint16_t size;
     if (fread(&size, 2, 1, f) < 1)
@@ -170,6 +179,7 @@ bool DepsLog::Load(const string& path, State* state, string* err) {
       deps_data += 2;
       int deps_count = (size / 4) - 2;
 
+      total_dep_record_count++;
       Deps* deps = new Deps;
       deps->mtime = mtime;
       deps->node_count = deps_count;
@@ -182,10 +192,11 @@ bool DepsLog::Load(const string& path, State* state, string* err) {
 
       if (out_id >= (int)deps_.size())
         deps_.resize(out_id + 1);
-      if (deps_[out_id]) {
-        ++dead_record_count_;
+
+      if (deps_[out_id])
         delete deps_[out_id];
-      }
+      else
+        ++unique_dep_record_count;
       deps_[out_id] = deps;
     } else {
       StringPiece path(buf, size);
@@ -200,6 +211,15 @@ bool DepsLog::Load(const string& path, State* state, string* err) {
     return false;
   }
   fclose(f);
+
+  // Rebuild the log if there are too many dead records.
+  int kMinCompactionEntryCount = 1000;
+  int kCompactionRatio = 3;
+  if (total_dep_record_count > kMinCompactionEntryCount &&
+      total_dep_record_count > unique_dep_record_count * kCompactionRatio) {
+    needs_recompaction_ = true;
+  }
+
   return true;
 }
 
@@ -219,14 +239,15 @@ bool DepsLog::Recompact(const string& path, string* err) {
     return false;
 
   // Clear all known ids so that new ones can be reassigned.
-  for (vector<Node*>::iterator i = nodes_.begin();
-       i != nodes_.end(); ++i) {
+  for (vector<Node*>::iterator i = nodes_.begin(); i != nodes_.end(); ++i)
     (*i)->set_id(-1);
-  }
 
   // Write out all deps again.
   for (int old_id = 0; old_id < (int)deps_.size(); ++old_id) {
     Deps* deps = deps_[old_id];
+    if (!deps)  // There's a leaf at old_id.
+      continue;
+
     if (!new_log.RecordDeps(nodes_[old_id], deps->mtime,
                             deps->node_count, deps->nodes)) {
       new_log.Close();
