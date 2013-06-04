@@ -1689,3 +1689,43 @@ TEST_F(BuildWithDepsLogTest, RestatDepfileDependencyDepsLog) {
     builder.command_runner_.release();
   }
 }
+
+TEST_F(BuildWithDepsLogTest, DepFileOKDepsLog) {
+  const char* manifest =
+      "rule cc\n  command = cc $in\n  depfile = $out.d\n  deps = gcc\n"
+      "build foo.o: cc foo.c\n";
+  {
+    string err;
+    State state;
+    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+
+    DepsLog deps_log;
+    ASSERT_TRUE(deps_log.OpenForWrite("ninja_deps", &err));
+    ASSERT_EQ("", err);
+
+    Builder builder(&state, config_, NULL, &deps_log, &fs_);
+    builder.command_runner_.reset(&command_runner_);
+
+    Edge* edge = state.edges_.back();
+
+    fs_.Create("foo.c", "");
+    GetNode("bar.h")->MarkDirty();  // Mark bar.h as missing.
+    fs_.Create("foo.o.d", "foo.o: blah.h bar.h\n");
+    EXPECT_TRUE(builder.AddTarget("foo.o", &err));
+    ASSERT_EQ("", err);
+    ASSERT_EQ(1u, fs_.files_read_.size());
+    EXPECT_EQ("foo.o.d", fs_.files_read_[0]);
+
+    // Expect three new edges: one generating foo.o, and two more from
+    // loading the depfile.
+    ASSERT_EQ(3, (int)state.edges_.size());
+    // Expect our edge to now have three inputs: foo.c and two headers.
+    ASSERT_EQ(3u, edge->inputs_.size());
+
+    // Expect the command line we generate to only use the original input.
+    ASSERT_EQ("cc foo.c", edge->EvaluateCommand());
+
+    deps_log.Close();
+    builder.command_runner_.release();
+  }
+}

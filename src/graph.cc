@@ -420,7 +420,7 @@ bool ImplicitDepLoader::LoadDepsFromLog(Edge* edge, TimeStamp* deps_mtime,
     Node* node = deps->nodes[i];
     *implicit_dep = node;
     node->AddOutEdge(edge);
-    CreatePhonyInEdge(node);
+    CreatePhonyInEdge(node);  // FIXME: needs test
   }
   return true;
 }
