@@ -1691,15 +1691,40 @@ TEST_F(BuildWithDepsLogTest, RestatDepfileDependencyDepsLog) {
 }
 
 TEST_F(BuildWithDepsLogTest, DepFileOKDepsLog) {
+  string err;
   const char* manifest =
       "rule cc\n  command = cc $in\n  depfile = $out.d\n  deps = gcc\n"
       "build foo.o: cc foo.c\n";
+
+  fs_.Create("foo.c", "");
+
   {
-    string err;
+    State state;
+    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+
+    // Run the build once, everything should be ok.
+    DepsLog deps_log;
+    ASSERT_TRUE(deps_log.OpenForWrite("ninja_deps", &err));
+    ASSERT_EQ("", err);
+
+    Builder builder(&state, config_, NULL, &deps_log, &fs_);
+    builder.command_runner_.reset(&command_runner_);
+    EXPECT_TRUE(builder.AddTarget("foo.o", &err));
+    ASSERT_EQ("", err);
+    fs_.Create("foo.o.d", "foo.o: blah.h bar.h\n");
+    EXPECT_TRUE(builder.Build(&err));
+    EXPECT_EQ("", err);
+
+    deps_log.Close();
+    builder.command_runner_.release();
+  }
+
+  {
     State state;
     ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
 
     DepsLog deps_log;
+    ASSERT_TRUE(deps_log.Load("ninja_deps", &state, &err));
     ASSERT_TRUE(deps_log.OpenForWrite("ninja_deps", &err));
     ASSERT_EQ("", err);
 
@@ -1708,13 +1733,9 @@ TEST_F(BuildWithDepsLogTest, DepFileOKDepsLog) {
 
     Edge* edge = state.edges_.back();
 
-    fs_.Create("foo.c", "");
-    GetNode("bar.h")->MarkDirty();  // Mark bar.h as missing.
-    fs_.Create("foo.o.d", "foo.o: blah.h bar.h\n");
+    state.GetNode("bar.h")->MarkDirty();  // Mark bar.h as missing.
     EXPECT_TRUE(builder.AddTarget("foo.o", &err));
     ASSERT_EQ("", err);
-    ASSERT_EQ(1u, fs_.files_read_.size());
-    EXPECT_EQ("foo.o.d", fs_.files_read_[0]);
 
     // Expect three new edges: one generating foo.o, and two more from
     // loading the depfile.
