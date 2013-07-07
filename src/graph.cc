@@ -44,19 +44,6 @@ const EvalString* Rule::GetBinding(const string& key) const {
   return &i->second;
 }
 
-// static
-bool Rule::IsReservedBinding(const string& var) {
-  return var == "command" ||
-      var == "depfile" ||
-      var == "description" ||
-      var == "deps" ||
-      var == "generator" ||
-      var == "pool" ||
-      var == "restat" ||
-      var == "rspfile" ||
-      var == "rspfile_content";
-}
-
 bool DependencyScan::RecomputeDirty(Edge* edge, string* err) {
   bool dirty = false;
   edge->outputs_ready_ = true;

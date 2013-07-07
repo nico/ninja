@@ -121,7 +121,22 @@ struct Rule {
   typedef map<string, EvalString> Bindings;
   void AddBinding(const string& key, const EvalString& val);
 
-  static bool IsReservedBinding(const string& var);
+  static bool IsReservedBinding(const string& var) {
+    if (var.size() < 4) return false;
+
+    switch (var[0] + var[3]) {
+      case 'c' + 'm': return strcmp(var.c_str(), "command") == 0;
+      case 'd' + 'f': return strcmp(var.c_str(), "depfile") == 0;
+      case 'd' + 'c': return strcmp(var.c_str(), "description") == 0;
+      case 'd' + 's': return strcmp(var.c_str(), "deps") == 0;
+      case 'g' + 'e': return strcmp(var.c_str(), "generator") == 0;
+      case 'p' + 'l': return strcmp(var.c_str(), "pool") == 0;
+      case 'r' + 't': return strcmp(var.c_str(), "restat") == 0;
+      case 'r' + 'f': return strcmp(var.c_str(), "rspfile") == 0 ||
+                             strcmp(var.c_str(), "rspfile_content") == 0;
+    }
+    return false;
+  }
 
   const EvalString* GetBinding(const string& key) const;
 
