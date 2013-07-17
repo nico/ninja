@@ -31,6 +31,8 @@ struct Metric {
   int count;
   /// Total time (in micros) we've spent on the code path.
   int64_t sum;
+  /// If this metric is currently recording (useful in recursive functions).
+  bool is_recording;
 };
 
 

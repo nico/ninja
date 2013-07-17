@@ -75,16 +75,19 @@ int64_t TimerToMicros(int64_t dt) {
 
 ScopedMetric::ScopedMetric(Metric* metric) {
   metric_ = metric;
-  if (!metric_)
+  start_ = -1;
+  if (!metric_ || metric_->is_recording)
     return;
+  metric_->is_recording = true;
   start_ = HighResTimer();
 }
 ScopedMetric::~ScopedMetric() {
-  if (!metric_)
+  if (!metric_ || (metric_->is_recording && start_ == -1))
     return;
   metric_->count++;
   int64_t dt = TimerToMicros(HighResTimer() - start_);
   metric_->sum += dt;
+  metric_->is_recording = false;
 }
 
 Metric* Metrics::NewMetric(const string& name) {
@@ -92,6 +95,7 @@ Metric* Metrics::NewMetric(const string& name) {
   metric->name = name;
   metric->count = 0;
   metric->sum = 0;
+  metric->is_recording = false;
   metrics_.push_back(metric);
   return metric;
 }
