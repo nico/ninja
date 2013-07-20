@@ -135,8 +135,8 @@ struct Rule {
 
 /// An edge in the dependency graph; links between Nodes using Rules.
 struct Edge {
-  Edge() : rule_(NULL), env_(NULL), outputs_ready_(false), implicit_deps_(0),
-           order_only_deps_(0) {}
+  Edge() : rule_(NULL), env_(NULL), outputs_ready_(false), deps_mtime_(0),
+           implicit_deps_(0), order_only_deps_(0) {}
 
   /// Return true if all inputs' in-edges are ready.
   bool AllInputsReady() const;
@@ -157,6 +157,12 @@ struct Edge {
   vector<Node*> outputs_;
   BindingEnv* env_;
   bool outputs_ready_;
+
+  /// Updated during dependency scan.
+  ///  0 - no depfile(/deps) or depfile is known to be valid.
+  /// -1 - depfile known to be missing or invalid. Edge should be rebuilt.
+  /// >0 - deps timestamp. To be compared against outputs.
+  TimeStamp deps_mtime_;
 
   const Rule& rule() const { return *rule_; }
   Pool* pool() const { return pool_; }
@@ -243,7 +249,6 @@ struct DependencyScan {
   /// Recompute whether a given single output should be marked dirty.
   /// Returns true if so.
   bool RecomputeOutputDirty(Edge* edge, Node* most_recent_input,
-                            TimeStamp deps_mtime,
                             const string& command, Node* output);
 
   BuildLog* build_log() const {

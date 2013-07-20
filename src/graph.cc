@@ -61,11 +61,11 @@ bool DependencyScan::RecomputeDirty(Edge* edge, string* err) {
   bool dirty = false;
   edge->outputs_ready_ = true;
 
-  TimeStamp deps_mtime = 0;
-  if (!dep_loader_.LoadDeps(edge, &deps_mtime, err)) {
+  if (!dep_loader_.LoadDeps(edge, &edge->deps_mtime_, err)) {
     if (!err->empty())
       return false;
     // Failed to load dependency info: rebuild to regenerate it.
+    edge->deps_mtime_ = -1;
     dirty = true;
   }
 
@@ -113,8 +113,7 @@ bool DependencyScan::RecomputeDirty(Edge* edge, string* err) {
     for (vector<Node*>::iterator i = edge->outputs_.begin();
          i != edge->outputs_.end(); ++i) {
       (*i)->StatIfNecessary(disk_interface_);
-      if (RecomputeOutputDirty(edge, most_recent_input, deps_mtime,
-                               command, *i)) {
+      if (RecomputeOutputDirty(edge, most_recent_input, command, *i)) {
         dirty = true;
         break;
       }
@@ -143,7 +142,6 @@ bool DependencyScan::RecomputeDirty(Edge* edge, string* err) {
 
 bool DependencyScan::RecomputeOutputDirty(Edge* edge,
                                           Node* most_recent_input,
-                                          TimeStamp deps_mtime,
                                           const string& command,
                                           Node* output) {
   if (edge->is_phony()) {
@@ -153,6 +151,7 @@ bool DependencyScan::RecomputeOutputDirty(Edge* edge,
   }
 
   BuildLog::LogEntry* entry = 0;
+  TimeStamp deps_mtime = edge->deps_mtime_;
 
   // Dirty if we're missing the output.
   if (!output->exists()) {
@@ -185,10 +184,11 @@ bool DependencyScan::RecomputeOutputDirty(Edge* edge,
     }
   }
 
-  // Dirty if the output is newer than the deps.
+  // Dirty if the output is newer than the deps, or depfile/deps are missing.
   if (deps_mtime && output->mtime() > deps_mtime) {
-    EXPLAIN("stored deps info out of date for for %s (%d vs %d)",
-            output->path().c_str(), deps_mtime, output->mtime());
+    if (deps_mtime > 0)
+      EXPLAIN("stored deps info out of date for for %s (%d vs %d)",
+              output->path().c_str(), deps_mtime, output->mtime());
     return true;
   }
 
