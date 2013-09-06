@@ -152,8 +152,6 @@ bool DependencyScan::RecomputeOutputDirty(Edge* edge,
   if (edge->is_phony()) {
     // Phony edges don't write any output.  Outputs are dirty if
     // there are no inputs and we're missing the output.
-    //return edge->inputs_.empty() && !output->exists();
-  //}
     if (edge->inputs_.empty() && !output->exists()) {
       return true;
     }
@@ -165,12 +163,11 @@ bool DependencyScan::RecomputeOutputDirty(Edge* edge,
     // Phony edges are clean, nothing to do
     return false;
   }
-  else {
-    // Dirty if we're missing the output.
-    if (!output->exists()) {
-      EXPLAIN("output %s doesn't exist", output->path().c_str());
-      return true;
-    }
+
+  // Dirty if we're missing the output.
+  if (!output->exists()) {
+    EXPLAIN("output %s doesn't exist", output->path().c_str());
+    return true;
   }
 
   // Dirty if the output is older than the input.

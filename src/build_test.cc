@@ -940,28 +940,27 @@ TEST_F(BuildTest, PhonyNoWork) {
   EXPECT_TRUE(builder_.AlreadyUpToDate());
 }
 
-/// There are 6 different cases for phony rules :
-///
-/// 1. output edge does not exist, inputs are not real
-/// 2. output edge does not exist, no inputs
-/// 3. output edge does not exist, inputs are real, newest mtime is M
-/// 4. output edge is real, inputs are not real
-/// 5. output edge is real, no inputs
-/// 6. output edge is real, inputs are real, newest mtime is M
-///
-/// Expected results :
-/// 1. Edge is marked as clean, mtime is newest mtime of dependents.
-///     Touching inputs will cause dependents to rebuild.
-/// 2. Edge is marked as dirty, causing dependent edges to always rebuild
-/// 3. Edge is marked as clean, mtime is newest mtime of dependents.
-///     Touching inputs will cause dependents to rebuild.
-/// 4. Edge is marked as clean, mtime is newest mtime of dependents.
-///     Touching inputs will cause dependents to rebuild.
-/// 5. Edge is marked as dirty, causing dependent edges to always rebuild
-/// 6. Edge is marked as clean, mtime is newest mtime of dependents.
-///     Touching inputs will cause dependents to rebuild.
-
-void TestPhonyUseCase(BuildTest * t, int i) {
+// There are 6 different cases for phony rules:
+//
+// 1. output edge does not exist, inputs are not real
+// 2. output edge does not exist, no inputs
+// 3. output edge does not exist, inputs are real, newest mtime is M
+// 4. output edge is real, inputs are not real
+// 5. output edge is real, no inputs
+// 6. output edge is real, inputs are real, newest mtime is M
+//
+// Expected results :
+// 1. Edge is marked as clean, mtime is newest mtime of dependents.
+//     Touching inputs will cause dependents to rebuild.
+// 2. Edge is marked as dirty, causing dependent edges to always rebuild
+// 3. Edge is marked as clean, mtime is newest mtime of dependents.
+//     Touching inputs will cause dependents to rebuild.
+// 4. Edge is marked as clean, mtime is newest mtime of dependents.
+//     Touching inputs will cause dependents to rebuild.
+// 5. Edge is marked as dirty, causing dependent edges to always rebuild
+// 6. Edge is marked as clean, mtime is newest mtime of dependents.
+//     Touching inputs will cause dependents to rebuild.
+void TestPhonyUseCase(BuildTest* t, int i) {
   State& state_ = t->state_;
   Builder& builder_ = t->builder_;
   FakeCommandRunner& command_runner_ = t->command_runner_;
@@ -973,10 +972,10 @@ void TestPhonyUseCase(BuildTest * t, int i) {
 " command = touch $out\n"
 "build notreal: phony blank\n"
 "build phony1: phony notreal\n"
-"build phony2: phony \n"
+"build phony2: phony\n"
 "build phony3: phony blank\n"
 "build phony4: phony notreal\n"
-"build phony5: phony \n"
+"build phony5: phony\n"
 "build phony6: phony blank\n"
 "\n"
 "build test1: touch phony1\n"
@@ -987,7 +986,7 @@ void TestPhonyUseCase(BuildTest * t, int i) {
 "build test6: touch phony6\n"
 ));
 
-  // Set up test
+  // Set up test.
   builder_.command_runner_.reset(&command_runner_);
 
   fs_.Create("blank", "");  // a "real" file
@@ -1007,19 +1006,19 @@ void TestPhonyUseCase(BuildTest * t, int i) {
   ASSERT_EQ("", err);
 
   string ci;
-  ci += (char)('0'+i);
+  ci += static_cast<char>('0' + i);
 
-  // Tests 1,3,4,6. Rebuild when input is updated
-  if( i != 2 && i != 5 ) {
-    Node* testNode  = t->GetNode("test"+ci);
-    Node* phonyNode = t->GetNode("phony"+ci);
+  // Tests 1, 3, 4, and 6 should rebuild when the input is updated.
+  if (i != 2 && i != 5) {
+    Node* testNode  = t->GetNode("test" + ci);
+    Node* phonyNode = t->GetNode("phony" + ci);
     Node* inputNode = t->GetNode("blank");
 
     state_.Reset();
     TimeStamp startTime = fs_.now_;
 
     // Build number 1
-    EXPECT_TRUE(builder_.AddTarget("test"+ci, &err));
+    EXPECT_TRUE(builder_.AddTarget("test" + ci, &err));
     ASSERT_EQ("", err);
     if (!builder_.AlreadyUpToDate())
       EXPECT_TRUE(builder_.Build(&err));
@@ -1030,17 +1029,17 @@ void TestPhonyUseCase(BuildTest * t, int i) {
     command_runner_.commands_ran_.clear();
     fs_.Tick();
     fs_.Create("blank", "");  // a "real" file
-    EXPECT_TRUE(builder_.AddTarget("test"+ci, &err));
+    EXPECT_TRUE(builder_.AddTarget("test" + ci, &err));
     ASSERT_EQ("", err);
 
-    // Build number 2, expect testN edge to be rebuilt 
-    //  and phonyN node's mtime to be updated
+    // Second build, expect testN edge to be rebuilt 
+    // and phonyN node's mtime to be updated.
     EXPECT_FALSE(builder_.AlreadyUpToDate());
     EXPECT_TRUE(builder_.Build(&err));
     ASSERT_EQ("", err);
     ASSERT_EQ(1u, command_runner_.commands_ran_.size());
-    EXPECT_EQ(string("touch test")+ci, command_runner_.commands_ran_[0]);
-    EXPECT_TRUE( builder_.AlreadyUpToDate() );
+    EXPECT_EQ(string("touch test") + ci, command_runner_.commands_ran_[0]);
+    EXPECT_TRUE(builder_.AlreadyUpToDate());
 
     TimeStamp inputTime = inputNode->mtime();
 
@@ -1052,31 +1051,30 @@ void TestPhonyUseCase(BuildTest * t, int i) {
     testNode->Stat(&fs_);
     EXPECT_TRUE(testNode->exists());
     EXPECT_GT(testNode->mtime(), startTime);
-  }
-  else {
-    // Test 2, 5. Expect dependents to always rebuild.
+  } else {
+    // Tests 2 and 5: Expect dependents to always rebuild.
 
     state_.Reset();
     command_runner_.commands_ran_.clear();
     fs_.Tick();
     command_runner_.commands_ran_.clear();
-    EXPECT_TRUE(builder_.AddTarget("test"+ci, &err));
+    EXPECT_TRUE(builder_.AddTarget("test" + ci, &err));
     ASSERT_EQ("", err);
     EXPECT_FALSE(builder_.AlreadyUpToDate());
     EXPECT_TRUE(builder_.Build(&err));
     ASSERT_EQ("", err);
     ASSERT_EQ(1u, command_runner_.commands_ran_.size());
-    EXPECT_EQ("touch test"+ci, command_runner_.commands_ran_[0]);
+    EXPECT_EQ("touch test" + ci, command_runner_.commands_ran_[0]);
 
     state_.Reset();
     command_runner_.commands_ran_.clear();
-    EXPECT_TRUE(builder_.AddTarget("test"+ci, &err));
+    EXPECT_TRUE(builder_.AddTarget("test" + ci, &err));
     ASSERT_EQ("", err);
     EXPECT_FALSE(builder_.AlreadyUpToDate());
     EXPECT_TRUE(builder_.Build(&err));
     ASSERT_EQ("", err);
     ASSERT_EQ(1u, command_runner_.commands_ran_.size());
-    EXPECT_EQ("touch test"+ci, command_runner_.commands_ran_[0]);
+    EXPECT_EQ("touch test" + ci, command_runner_.commands_ran_[0]);
   }
 }
 
@@ -1291,8 +1289,7 @@ TEST_F(BuildWithLogTest, RestatSingleDependentOutputDirty) {
     "  command = touch\n"
     "build out1: true in\n"
     "build out2 out3: touch out1\n"
-    "build out4: touch out2\n"
-    ));
+    "build out4: touch out2\n"));
 
   // Create the necessary files
   fs_.Create("in", "");

@@ -231,7 +231,7 @@ TEST_F(GraphTest, DepfileOverrideParent) {
 // Verify that building a nested phony rule prints "no work to do"
 TEST_F(GraphTest, NestedPhonyPrintsDone) {
   AssertParse(&state_,
-"build n1: phony \n"
+"build n1: phony\n"
 "build n2: phony n1\n"
   );
   string err;
@@ -247,14 +247,14 @@ TEST_F(GraphTest, NestedPhonyPrintsDone) {
   ASSERT_FALSE(plan_.more_to_do());
 }
 
-// Check that phony's dependencies mtimes are propagated
+// Check that phony's dependencies' mtimes are propagated.
 TEST_F(GraphTest, PhonyDepsMtimes) {
   string err;
   ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule touch\n"
-" command = touch $out \n"
-"build in_ph: phony in1 \n"
-"build out1: touch in_ph \n"
+" command = touch $out\n"
+"build in_ph: phony in1\n"
+"build out1: touch in_ph\n"
 ));
   fs_.Create("in1", "");
   fs_.Create("out1", "");
