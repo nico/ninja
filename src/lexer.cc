@@ -734,13 +734,13 @@ yy105:
 yy106:
 	++p;
 	{
-      eval->AddText(StringPiece(" ", 1));
+      //eval->AddText(StringPiece(" ", 1));
       continue;
     }
 yy108:
 	++p;
 	{
-      eval->AddText(StringPiece("$", 1));
+      //eval->AddText(StringPiece("$", 1));
       continue;
     }
 yy110:
@@ -749,13 +749,13 @@ yy110:
 	goto yy124;
 yy111:
 	{
-      eval->AddSpecial(StringPiece(start + 1, p - start - 1));
+      //eval->AddSpecial(StringPiece(start + 1, p - start - 1));
       continue;
     }
 yy112:
 	++p;
 	{
-      eval->AddText(StringPiece(":", 1));
+      //eval->AddText(StringPiece(":", 1));
       continue;
     }
 yy114:
@@ -785,7 +785,7 @@ yy118:
 yy121:
 	++p;
 	{
-      eval->AddSpecial(StringPiece(start + 2, p - start - 3));
+      //eval->AddSpecial(StringPiece(start + 2, p - start - 3));
       continue;
     }
 yy123:

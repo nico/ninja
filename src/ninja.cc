@@ -1049,6 +1049,10 @@ int real_main(int argc, char** argv) {
       return 1;
     }
 
+    if (g_metrics)
+      ninja.DumpMetrics();
+    return 0;
+
     if (options.tool && options.tool->when == Tool::RUN_AFTER_LOAD)
       return (ninja.*options.tool->func)(argc, argv);
 

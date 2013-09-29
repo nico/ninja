@@ -156,10 +156,10 @@ bool ManifestParser::ParseRule(string* err) {
   if (!ExpectToken(Lexer::NEWLINE, err))
     return false;
 
-  if (state_->LookupRule(name) != NULL)
-    return lexer_.Error("duplicate rule '" + name + "'", err);
+  //if (state_->LookupRule(name) != NULL)
+  //  return lexer_.Error("duplicate rule '" + name + "'", err);
 
-  Rule* rule = new Rule(name);  // XXX scoped_ptr
+  //Rule* rule = new Rule(name);  // XXX scoped_ptr
 
   while (lexer_.PeekToken(Lexer::INDENT)) {
     string key;
@@ -167,25 +167,25 @@ bool ManifestParser::ParseRule(string* err) {
     if (!ParseLet(&key, &value, err))
       return false;
 
-    if (Rule::IsReservedBinding(key)) {
-      rule->AddBinding(key, value);
-    } else {
-      // Die on other keyvals for now; revisit if we want to add a
-      // scope here.
-      return lexer_.Error("unexpected variable '" + key + "'", err);
-    }
+    //if (Rule::IsReservedBinding(key)) {
+    //  rule->AddBinding(key, value);
+    //} else {
+    //  // Die on other keyvals for now; revisit if we want to add a
+    //  // scope here.
+    //  return lexer_.Error("unexpected variable '" + key + "'", err);
+    //}
   }
 
-  if (rule->bindings_["rspfile"].empty() !=
-      rule->bindings_["rspfile_content"].empty()) {
-    return lexer_.Error("rspfile and rspfile_content need to be "
-                        "both specified", err);
-  }
+  //if (rule->bindings_["rspfile"].empty() !=
+  //    rule->bindings_["rspfile_content"].empty()) {
+  //  return lexer_.Error("rspfile and rspfile_content need to be "
+  //                      "both specified", err);
+  //}
 
-  if (rule->bindings_["command"].empty())
-    return lexer_.Error("expected 'command =' line", err);
+  //if (rule->bindings_["command"].empty())
+  //  return lexer_.Error("expected 'command =' line", err);
 
-  state_->AddRule(rule);
+  //state_->AddRule(rule);
   return true;
 }
 
@@ -207,12 +207,12 @@ bool ManifestParser::ParseDefault(string* err) {
     return lexer_.Error("expected target name", err);
 
   do {
-    string path = eval.Evaluate(env_);
-    string path_err;
-    if (!CanonicalizePath(&path, &path_err))
-      return lexer_.Error(path_err, err);
-    if (!state_->AddDefault(path, &path_err))
-      return lexer_.Error(path_err, err);
+    //string path = eval.Evaluate(env_);
+    //string path_err;
+    //if (!CanonicalizePath(&path, &path_err))
+    //  return lexer_.Error(path_err, err);
+    //if (!state_->AddDefault(path, &path_err))
+    //  return lexer_.Error(path_err, err);
 
     eval.Clear();
     if (!lexer_.ReadPath(&eval, err))
@@ -232,11 +232,11 @@ bool ManifestParser::ParseEdge(string* err) {
     EvalString out;
     if (!lexer_.ReadPath(&out, err))
       return false;
-    if (out.empty())
-      return lexer_.Error("expected path", err);
+    //if (out.empty())
+    //  return lexer_.Error("expected path", err);
 
     do {
-      outs.push_back(out);
+    //  outs.push_back(out);
 
       out.Clear();
       if (!lexer_.ReadPath(&out, err))
@@ -251,9 +251,9 @@ bool ManifestParser::ParseEdge(string* err) {
   if (!lexer_.ReadIdent(&rule_name))
     return lexer_.Error("expected build command name", err);
 
-  const Rule* rule = state_->LookupRule(rule_name);
-  if (!rule)
-    return lexer_.Error("unknown build rule '" + rule_name + "'", err);
+  //const Rule* rule = state_->LookupRule(rule_name);
+  //if (!rule)
+    //return lexer_.Error("unknown build rule '" + rule_name + "'", err);
 
   for (;;) {
     // XXX should we require one path here?
@@ -262,7 +262,7 @@ bool ManifestParser::ParseEdge(string* err) {
       return false;
     if (in.empty())
       break;
-    ins.push_back(in);
+    //ins.push_back(in);
   }
 
   // Add all implicit deps, counting how many as we go.
@@ -274,8 +274,8 @@ bool ManifestParser::ParseEdge(string* err) {
         return err;
       if (in.empty())
         break;
-      ins.push_back(in);
-      ++implicit;
+      //ins.push_back(in);
+      //++implicit;
     }
   }
 
@@ -288,8 +288,8 @@ bool ManifestParser::ParseEdge(string* err) {
         return false;
       if (in.empty())
         break;
-      ins.push_back(in);
-      ++order_only;
+      //ins.push_back(in);
+      //++order_only;
     }
   }
 
@@ -297,7 +297,7 @@ bool ManifestParser::ParseEdge(string* err) {
     return false;
 
   // XXX scoped_ptr to handle error case.
-  BindingEnv* env = new BindingEnv(env_);
+  //BindingEnv* env = new BindingEnv(env_);
 
   while (lexer_.PeekToken(Lexer::INDENT)) {
     string key;
@@ -305,44 +305,44 @@ bool ManifestParser::ParseEdge(string* err) {
     if (!ParseLet(&key, &val, err))
       return false;
 
-    env->AddBinding(key, val.Evaluate(env_));
+    //env->AddBinding(key, val.Evaluate(env_));
   }
 
-  Edge* edge = state_->AddEdge(rule);
-  edge->env_ = env;
+  //Edge* edge = state_->AddEdge(rule);
+  //edge->env_ = env;
 
-  string pool_name = edge->GetBinding("pool");
-  if (!pool_name.empty()) {
-    Pool* pool = state_->LookupPool(pool_name);
-    if (pool == NULL)
-      return lexer_.Error("unknown pool name '" + pool_name + "'", err);
-    edge->pool_ = pool;
-  }
+  //string pool_name = edge->GetBinding("pool");
+  //if (!pool_name.empty()) {
+  //  Pool* pool = state_->LookupPool(pool_name);
+  //  if (pool == NULL)
+  //    return lexer_.Error("unknown pool name '" + pool_name + "'", err);
+  //  edge->pool_ = pool;
+  //}
 
-  for (vector<EvalString>::iterator i = ins.begin(); i != ins.end(); ++i) {
-    string path = i->Evaluate(env);
-    string path_err;
-    if (!CanonicalizePath(&path, &path_err))
-      return lexer_.Error(path_err, err);
-    state_->AddIn(edge, path);
-  }
-  for (vector<EvalString>::iterator i = outs.begin(); i != outs.end(); ++i) {
-    string path = i->Evaluate(env);
-    string path_err;
-    if (!CanonicalizePath(&path, &path_err))
-      return lexer_.Error(path_err, err);
-    state_->AddOut(edge, path);
-  }
-  edge->implicit_deps_ = implicit;
-  edge->order_only_deps_ = order_only;
+  //for (vector<EvalString>::iterator i = ins.begin(); i != ins.end(); ++i) {
+  //  string path = i->Evaluate(env);
+  //  string path_err;
+  //  if (!CanonicalizePath(&path, &path_err))
+  //    return lexer_.Error(path_err, err);
+  //  state_->AddIn(edge, path);
+  //}
+  //for (vector<EvalString>::iterator i = outs.begin(); i != outs.end(); ++i) {
+  //  string path = i->Evaluate(env);
+  //  string path_err;
+  //  if (!CanonicalizePath(&path, &path_err))
+  //    return lexer_.Error(path_err, err);
+  //  state_->AddOut(edge, path);
+  //}
+  //edge->implicit_deps_ = implicit;
+  //edge->order_only_deps_ = order_only;
 
-  // Multiple outputs aren't (yet?) supported with depslog.
-  string deps_type = edge->GetBinding("deps");
-  if (!deps_type.empty() && edge->outputs_.size() > 1) {
-    return lexer_.Error("multiple outputs aren't (yet?) supported by depslog; "
-                        "bring this up on the mailing list if it affects you",
-                        err);
-  }
+  //// Multiple outputs aren't (yet?) supported with depslog.
+  //string deps_type = edge->GetBinding("deps");
+  //if (!deps_type.empty() && edge->outputs_.size() > 1) {
+  //  return lexer_.Error("multiple outputs aren't (yet?) supported by depslog; "
+  //                      "bring this up on the mailing list if it affects you",
+  //                      err);
+  //}
 
   return true;
 }
