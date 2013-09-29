@@ -14,7 +14,6 @@
 #ifndef LLVM_SUPPORT_ALLOCATOR_H
 #define LLVM_SUPPORT_ALLOCATOR_H
 
-#include "AlignOf.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -34,6 +33,27 @@ inline uint64_t NextPowerOf2(uint64_t A) {
   A |= (A >> 32);
   return A + 1;
 }
+
+template <typename T>
+struct AlignmentCalcImpl {
+  char x;
+  T t;
+private:
+  AlignmentCalcImpl() {} // Never instantiate.
+};
+
+/// AlignOf - A templated class that contains an enum value representing
+///  the alignment of the template argument.  For example,
+///  AlignOf<int>::Alignment represents the alignment of type "int".  The
+///  alignment calculated is the minimum alignment, and not necessarily
+///  the "desired" alignment returned by GCC's __alignof__ (for example).  Note
+///  that because the alignment is an enum value, it can be used as a
+///  compile-time constant (e.g., for template instantiation).
+template <typename T>
+struct AlignOf {
+  enum { Alignment =
+         static_cast<unsigned int>(sizeof(AlignmentCalcImpl<T>) - sizeof(T)) };
+};
 
 template <typename T> struct ReferenceAdder { typedef T& result; };
 template <typename T> struct ReferenceAdder<T&> { typedef T result; };
@@ -218,7 +238,7 @@ public:
       char *End = Slab == Allocator.CurSlab ? Allocator.CurPtr :
                                               (char *)Slab + Slab->Size;
       for (char *Ptr = (char*)(Slab+1); Ptr < End; Ptr += sizeof(T)) {
-        Ptr = Allocator.AlignPtr(Ptr, alignOf<T>());
+        Ptr = Allocator.AlignPtr(Ptr, AlignOf<T>::Alignment);
         if (Ptr + sizeof(T) <= End)
           reinterpret_cast<T*>(Ptr)->~T();
       }
