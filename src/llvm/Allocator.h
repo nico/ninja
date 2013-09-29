@@ -15,6 +15,7 @@
 #define LLVM_SUPPORT_ALLOCATOR_H
 
 #include "AlignOf.h"
+#include "Compiler.h"
 #include "DataTypes.h"
 #include "MathExtras.h"
 #include <algorithm>
