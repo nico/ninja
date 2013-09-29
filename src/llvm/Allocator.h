@@ -15,7 +15,6 @@
 #define LLVM_SUPPORT_ALLOCATOR_H
 
 #include "AlignOf.h"
-#include "Compiler.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -92,8 +91,8 @@ class MallocSlabAllocator : public SlabAllocator {
 public:
   MallocSlabAllocator() : Allocator() { }
   virtual ~MallocSlabAllocator();
-  virtual MemSlab *Allocate(size_t Size) LLVM_OVERRIDE;
-  virtual void Deallocate(MemSlab *Slab) LLVM_OVERRIDE;
+  virtual MemSlab *Allocate(size_t Size);
+  virtual void Deallocate(MemSlab *Slab);
 };
 
 /// BumpPtrAllocator - This allocator is useful for containers that need
@@ -101,8 +100,8 @@ public:
 /// allocating memory, and never deletes it until the entire block is dead. This
 /// makes allocation speedy, but must only be used when the trade-off is ok.
 class BumpPtrAllocator {
-  BumpPtrAllocator(const BumpPtrAllocator &) LLVM_DELETED_FUNCTION;
-  void operator=(const BumpPtrAllocator &) LLVM_DELETED_FUNCTION;
+  BumpPtrAllocator(const BumpPtrAllocator &);
+  void operator=(const BumpPtrAllocator &);
 
   /// SlabSize - Allocate data into slabs of this size unless we get an
   /// allocation above SizeThreshold.

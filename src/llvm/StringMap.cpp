@@ -18,6 +18,13 @@ using namespace llvm;
 
 #include "../hash_map.h"
 
+#if (__GNUC__ >= 4)
+#define LLVM_LIKELY(EXPR) __builtin_expect((bool)(EXPR), true)
+#else
+#define LLVM_LIKELY(EXPR) (EXPR)
+#endif
+
+
 StringMapImpl::StringMapImpl(unsigned InitSize, unsigned itemSize) {
   ItemSize = itemSize;
   
