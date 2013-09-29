@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Allocator.h"
-#include "DataTypes.h"
 //#include "Memory.h"
 //#include "Recycler.h"
 //#include "raw_ostream.h"

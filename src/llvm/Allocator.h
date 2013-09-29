@@ -16,14 +16,26 @@
 
 #include "AlignOf.h"
 #include "Compiler.h"
-#include "DataTypes.h"
-#include "MathExtras.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
 
+#include "../util.h"  // uint64_t
+
 namespace llvm {
+/// NextPowerOf2 - Returns the next power of two (in 64-bits)
+/// that is strictly greater than A.  Returns zero on overflow.
+inline uint64_t NextPowerOf2(uint64_t A) {
+  A |= (A >> 1);
+  A |= (A >> 2);
+  A |= (A >> 4);
+  A |= (A >> 8);
+  A |= (A >> 16);
+  A |= (A >> 32);
+  return A + 1;
+}
+
 template <typename T> struct ReferenceAdder { typedef T& result; };
 template <typename T> struct ReferenceAdder<T&> { typedef T result; };
 
