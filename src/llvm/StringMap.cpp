@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "StringMap.h"
-#include "StringExtras.h"
 #include <cassert>
 using namespace llvm;
 
@@ -24,6 +23,18 @@ using namespace llvm;
 #define LLVM_LIKELY(EXPR) (EXPR)
 #endif
 
+/// HashString - Hash function for strings.
+///
+/// This is the Bernstein hash function.
+//
+// FIXME: Investigate whether a modified bernstein hash function performs
+// better: http://eternallyconfuzzled.com/tuts/algorithms/jsw_tut_hashing.aspx
+//   X*33+c -> X*33^c
+static inline unsigned HashString(StringPiece Str, unsigned Result = 0) {
+  for (unsigned i = 0, e = Str.len_; i != e; ++i)
+    Result = Result * 33 + (unsigned char)Str.str_[i];
+  return Result;
+}
 
 StringMapImpl::StringMapImpl(unsigned InitSize, unsigned itemSize) {
   ItemSize = itemSize;
