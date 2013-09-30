@@ -19,16 +19,13 @@
 #include <cstring>
 
 namespace llvm {
-  template<typename ValueT>
-  class StringMapConstIterator;
-  template<typename ValueT>
-  class StringMapIterator;
-  template<typename ValueTy>
-  class StringMapEntry;
+template<typename ValueT> class StringMapConstIterator;
+template<typename ValueT> class StringMapIterator;
+template <typename ValueTy> class StringMapEntry;
 
-/// StringMapEntryInitializer - This datatype can be partially specialized for
-/// various datatypes in a stringmap to allow them to be initialized when an
-/// entry is default constructed for the map.
+// This datatype can be partially specialized for various datatypes in a
+// stringmap to allow them to be initialized when an entry is default
+// constructed for the map.
 template<typename ValueTy>
 class StringMapEntryInitializer {
 public:
@@ -39,17 +36,16 @@ public:
 };
 
 
-/// StringMapEntryBase - Shared base class of StringMapEntry instances.
+// Shared base class of StringMapEntry instances.
 class StringMapEntryBase {
   unsigned StrLen;
 public:
   explicit StringMapEntryBase(unsigned Len) : StrLen(Len) {}
-
   unsigned getKeyLength() const { return StrLen; }
 };
 
-/// StringMapImpl - This is the base class of StringMap that is shared among
-/// all of its instantiations.
+// This is the base class of StringMap that is shared among all of its
+// instantiations.
 class StringMapImpl {
 protected:
   // Array of NumBuckets pointers to entries, null pointers are holes.
@@ -71,24 +67,24 @@ protected:
   StringMapImpl(unsigned InitSize, unsigned ItemSize);
   void RehashTable();
 
-  /// LookupBucketFor - Look up the bucket that the specified string should end
-  /// up in.  If it already exists as a key in the map, the Item pointer for the
-  /// specified bucket will be non-null.  Otherwise, it will be null.  In either
-  /// case, the FullHashValue field of the bucket will be set to the hash value
-  /// of the string.
+  // Look up the bucket that the specified string should end up in.  If it
+  // already exists as a key in the map, the Item pointer for the specified
+  // bucket will be non-null.  Otherwise, it will be null.  In either case, the
+  // FullHashValue field of the bucket will be set to the hash value of the
+  // string.
   unsigned LookupBucketFor(StringPiece Key);
 
-  /// FindKey - Look up the bucket that contains the specified key. If it exists
-  /// in the map, return the bucket number of the key.  Otherwise return -1.
-  /// This does not modify the map.
+  // Look up the bucket that contains the specified key. If it exists in the
+  // map, return the bucket number of the key.  Otherwise return -1.
+  // This does not modify the map.
   int FindKey(StringPiece Key) const;
 
-  /// RemoveKey - Remove the specified StringMapEntry from the table, but do not
-  /// delete it.  This aborts if the value isn't in the table.
+  // Remove the specified StringMapEntry from the table, but do not delete it.
+  // This aborts if the value isn't in the table.
   void RemoveKey(StringMapEntryBase *V);
 
-  /// RemoveKey - Remove the StringMapEntry for the specified key from the
-  /// table, returning it.  If the key is not in the table, this returns null.
+  // Remove the StringMapEntry for the specified key from the table, returning
+  // it.  If the key is not in the table, this returns null.
   StringMapEntryBase *RemoveKey(StringPiece Key);
 private:
   void init(unsigned Size);
@@ -112,24 +108,21 @@ private:
   AlignmentCalcImpl() {} // Never instantiate.
 };
 
-/// AlignOf - A templated class that contains an enum value representing
-///  the alignment of the template argument.  For example,
-///  AlignOf<int>::Alignment represents the alignment of type "int".  The
-///  alignment calculated is the minimum alignment, and not necessarily
-///  the "desired" alignment returned by GCC's __alignof__ (for example).  Note
-///  that because the alignment is an enum value, it can be used as a
-///  compile-time constant (e.g., for template instantiation).
+// A templated class that contains an enum value representing the alignment of
+// the template argument.  For example, AlignOf<int>::Alignment represents the
+// alignment of type "int".  The alignment calculated is the minimum alignment,
+// and not necessarily the "desired" alignment returned by GCC's __alignof__
+// (for example).  Note that because the alignment is an enum value, it can be
+// used as a compile-time constant (e.g., for template instantiation).
 template <typename T>
 struct AlignOf {
   enum { Alignment =
          static_cast<unsigned int>(sizeof(AlignmentCalcImpl<T>) - sizeof(T)) };
 };
 
-/// StringMapEntry - This is used to represent one value that is inserted into
-/// a StringMap.  It contains the Value itself and the key: the string length
-/// and data.
-template<typename ValueTy>
-class StringMapEntry : public StringMapEntryBase {
+// This is used to represent one value that is inserted into a StringMap.  It
+// contains the Value itself and the key: the string length and data.
+template <typename ValueTy> class StringMapEntry : public StringMapEntryBase {
 public:
   ValueTy second;
 
@@ -147,20 +140,18 @@ public:
 
   void setValue(const ValueTy &V) { second = V; }
 
-  /// getKeyData - Return the start of the string data that is the key for this
-  /// value.  The string data is always stored immediately after the
-  /// StringMapEntry object.
+  // Return the start of the string data that is the key for this value.  The
+  // string data is always stored immediately after the StringMapEntry object.
   const char *getKeyData() const {return reinterpret_cast<const char*>(this+1);}
 
   StringPiece first() const { return StringPiece(getKeyData(), getKeyLength()); }
 
-  /// Create - Create a StringMapEntry for the specified key and default
-  /// construct the value.
+  // Create a StringMapEntry for the specified key and default construct the
+  // value.
   template<typename AllocatorTy, typename InitType>
   static StringMapEntry *Create(const char *KeyStart, const char *KeyEnd,
-                                AllocatorTy &Allocator,
-                                InitType InitVal) {
-    unsigned KeyLength = static_cast<unsigned>(KeyEnd-KeyStart);
+                                AllocatorTy &Allocator, InitType InitVal) {
+    unsigned KeyLength = static_cast<unsigned>(KeyEnd - KeyStart);
 
     // Okay, the item doesn't already exist, and 'Bucket' is the bucket to fill
     // in.  Allocate a new item with space for the string at the end and a null
@@ -192,8 +183,8 @@ public:
     return Create(KeyStart, KeyEnd, Allocator, 0);
   }
 
-  /// GetStringMapEntryFromValue - Given a value that is known to be embedded
-  /// into a StringMapEntry, return the StringMapEntry itself.
+  // Given a value that is known to be embedded into a StringMapEntry, return
+  // the StringMapEntry itself.
   static StringMapEntry &GetStringMapEntryFromValue(ValueTy &V) {
     StringMapEntry *EPtr = 0;
     char *Ptr = reinterpret_cast<char*>(&V) -
@@ -205,15 +196,15 @@ public:
     return GetStringMapEntryFromValue(const_cast<ValueTy&>(V));
   }
 
-  /// GetStringMapEntryFromKeyData - Given key data that is known to be embedded
-  /// into a StringMapEntry, return the StringMapEntry itself.
+  // Given key data that is known to be embedded into a StringMapEntry, return
+  // the StringMapEntry itself.
   static StringMapEntry &GetStringMapEntryFromKeyData(const char *KeyData) {
     char *Ptr = const_cast<char*>(KeyData) - sizeof(StringMapEntry<ValueTy>);
     return *reinterpret_cast<StringMapEntry*>(Ptr);
   }
 
-  /// Destroy - Destroy this StringMapEntry, releasing memory back to the
-  /// specified allocator.
+  // Destroy this StringMapEntry, releasing memory back to the specified
+  // allocator.
   template<typename AllocatorTy>
   void Destroy(AllocatorTy &Allocator) {
     // Free memory referenced by the item.
@@ -223,10 +214,10 @@ public:
 };
 
 
-/// StringMap - This is an unconventional map that is specialized for handling
-/// keys that are "strings", which are basically ranges of bytes. This does some
-/// funky memory allocation and hashing things to make it extremely efficient,
-/// storing the string data *after* the value in the map.
+// This is an unconventional map that is specialized for handling keys that are
+// "strings", which are basically ranges of bytes. This does some funky memory
+// allocation and hashing things to make it extremely efficient, storing the
+// string data *after* the value in the map.
 template<typename ValueTy, typename AllocatorTy = MallocAllocator>
 class StringMap : public StringMapImpl {
   AllocatorTy Allocator;
@@ -290,8 +281,8 @@ public:
     return const_iterator(TheTable+Bucket, true);
   }
 
-  /// lookup - Return the entry for the specified key, or a default
-  /// constructed value if no such entry exists.
+  // Return the entry for the specified key, or a default constructed value if
+  // no such entry exists.
   ValueTy lookup(StringPiece Key) const {
     const_iterator it = find(Key);
     if (it != end())
@@ -307,9 +298,9 @@ public:
     return find(Key) == end() ? 0 : 1;
   }
 
-  /// insert - Insert the specified key/value pair into the map.  If the key
-  /// already exists in the map, return false and ignore the request, otherwise
-  /// insert it and return true.
+  // Insert the specified key/value pair into the map.  If the key already
+  // exists in the map, return false and ignore the request, otherwise insert
+  // it and return true.
   bool insert(MapEntryTy *KeyValue) {
     unsigned BucketNo = LookupBucketFor(KeyValue->getKey());
     StringMapEntryBase *&Bucket = TheTable[BucketNo];
@@ -344,9 +335,8 @@ public:
     NumTombstones = 0;
   }
 
-  /// GetOrCreateValue - Look up the specified key in the table.  If a value
-  /// exists, return it.  Otherwise, default construct a value, insert it, and
-  /// return.
+  // Look up the specified key in the table.  If a value exists, return it.
+  // Otherwise, default construct a value, insert it, and return.
   template <typename InitTy>
   MapEntryTy &GetOrCreateValue(StringPiece Key, InitTy Val) {
     unsigned BucketNo = LookupBucketFor(Key);
@@ -374,8 +364,8 @@ public:
     return GetOrCreateValue(Key, ValueTy());
   }
 
-  /// remove - Remove the specified key/value pair from the map, but do not
-  /// erase it.  This aborts if the key is not in the map.
+  // Remove the specified key/value pair from the map, but do not erase it.
+  // This aborts if the key is not in the map.
   void remove(MapEntryTy *KeyValue) {
     RemoveKey(KeyValue);
   }

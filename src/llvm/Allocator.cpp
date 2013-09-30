@@ -24,20 +24,17 @@ BumpPtrAllocator::~BumpPtrAllocator() {
   DeallocateSlabs(CurSlab);
 }
 
-/// AlignPtr - Align Ptr to Alignment bytes, rounding up.  Alignment should
-/// be a power of two.  This method rounds up, so AlignPtr(7, 4) == 8 and
-/// AlignPtr(8, 4) == 8.
+// Align Ptr to Alignment bytes, rounding up.  Alignment should be a power of
+// two.  This method rounds up, so AlignPtr(7, 4) == 8 and AlignPtr(8, 4) == 8.
 char *BumpPtrAllocator::AlignPtr(char *Ptr, size_t Alignment) {
   assert(Alignment && (Alignment & (Alignment - 1)) == 0 &&
          "Alignment is not a power of two!");
-
-  // Do the alignment.
-  return (char*)(((uintptr_t)Ptr + Alignment - 1) &
-                 ~(uintptr_t)(Alignment - 1));
+  return (char *)(((uintptr_t)Ptr + Alignment - 1) &
+                  ~(uintptr_t)(Alignment - 1));
 }
 
-/// StartNewSlab - Allocate a new slab and move the bump pointers over into
-/// the new slab.  Modifies CurPtr and End.
+// Allocate a new slab and move the bump pointers over into the new slab.
+// Modifies CurPtr and End.
 void BumpPtrAllocator::StartNewSlab() {
   // If we allocated a big number of slabs already it's likely that we're going
   // to allocate more. Increase slab size to reduce mallocs and possibly memory
@@ -52,8 +49,7 @@ void BumpPtrAllocator::StartNewSlab() {
   End = ((char*)CurSlab) + CurSlab->Size;
 }
 
-/// DeallocateSlabs - Deallocate all memory slabs after and including this
-/// one.
+// Deallocate all memory slabs after and including this one.
 void BumpPtrAllocator::DeallocateSlabs(MemSlab *Slab) {
   while (Slab) {
     MemSlab *NextSlab = Slab->NextPtr;
@@ -62,8 +58,19 @@ void BumpPtrAllocator::DeallocateSlabs(MemSlab *Slab) {
   }
 }
 
-/// Reset - Deallocate all but the current slab and reset the current pointer
-/// to the beginning of it, freeing all memory allocated so far.
+MemSlab *BumpPtrAllocator::AllocateSlab(size_t Size) {
+  MemSlab *Slab = (MemSlab*)malloc(Size);
+  Slab->Size = Size;
+  Slab->NextPtr = 0;
+  return Slab;
+}
+
+void BumpPtrAllocator::DeallocateSlab(MemSlab *Slab) {
+  free(Slab);
+}
+
+// Deallocate all but the current slab and reset the current pointer to the
+// beginning of it, freeing all memory allocated so far.
 void BumpPtrAllocator::Reset() {
   if (!CurSlab)
     return;
@@ -74,8 +81,7 @@ void BumpPtrAllocator::Reset() {
   BytesAllocated = 0;
 }
 
-/// Allocate - Allocate space at the specified alignment.
-///
+// Allocate space at the specified alignment.
 void *BumpPtrAllocator::Allocate(size_t Size, size_t Alignment) {
   if (!CurSlab) // Start a new slab if we haven't allocated one already.
     StartNewSlab();
@@ -120,29 +126,16 @@ void *BumpPtrAllocator::Allocate(size_t Size, size_t Alignment) {
 
 unsigned BumpPtrAllocator::GetNumSlabs() const {
   unsigned NumSlabs = 0;
-  for (MemSlab *Slab = CurSlab; Slab != 0; Slab = Slab->NextPtr) {
+  for (MemSlab *Slab = CurSlab; Slab != 0; Slab = Slab->NextPtr)
     ++NumSlabs;
-  }
   return NumSlabs;
 }
 
 size_t BumpPtrAllocator::getTotalMemory() const {
   size_t TotalMemory = 0;
-  for (MemSlab *Slab = CurSlab; Slab != 0; Slab = Slab->NextPtr) {
+  for (MemSlab *Slab = CurSlab; Slab != 0; Slab = Slab->NextPtr)
     TotalMemory += Slab->Size;
-  }
   return TotalMemory;
 }
   
-MemSlab *BumpPtrAllocator::AllocateSlab(size_t Size) {
-  MemSlab *Slab = (MemSlab*)malloc(Size);
-  Slab->Size = Size;
-  Slab->NextPtr = 0;
-  return Slab;
-}
-
-void BumpPtrAllocator::DeallocateSlab(MemSlab *Slab) {
-  free(Slab);
-}
-
 }
