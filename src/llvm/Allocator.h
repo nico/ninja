@@ -22,17 +22,6 @@
 #include "../util.h"  // uint64_t
 
 namespace llvm {
-/// NextPowerOf2 - Returns the next power of two (in 64-bits)
-/// that is strictly greater than A.  Returns zero on overflow.
-inline uint64_t NextPowerOf2(uint64_t A) {
-  A |= (A >> 1);
-  A |= (A >> 2);
-  A |= (A >> 4);
-  A |= (A >> 8);
-  A |= (A >> 16);
-  A |= (A >> 32);
-  return A + 1;
-}
 
 template <typename T>
 struct AlignmentCalcImpl {
@@ -67,17 +56,7 @@ public:
 
   void *Allocate(size_t Size, size_t /*Alignment*/) { return malloc(Size); }
 
-  template <typename T>
-  T *Allocate() { return static_cast<T*>(malloc(sizeof(T))); }
-
-  template <typename T>
-  T *Allocate(size_t Num) {
-    return static_cast<T*>(malloc(sizeof(T)*Num));
-  }
-
   void Deallocate(const void *Ptr) { free(const_cast<void*>(Ptr)); }
-
-  void PrintStats() const {}
 };
 
 /// MemSlab - This structure lives at the beginning of every slab allocated by
@@ -137,7 +116,6 @@ class BumpPtrAllocator {
   SlabAllocator &Allocator;
 
   /// CurSlab - The slab that we are currently allocating into.
-  ///
   MemSlab *CurSlab;
 
   /// CurPtr - The current pointer into the current slab.  This points to the
@@ -178,97 +156,16 @@ public:
   void Reset();
 
   /// Allocate - Allocate space at the specified alignment.
-  ///
   void *Allocate(size_t Size, size_t Alignment);
-
-  /// Allocate space, but do not construct, one object.
-  ///
-  template <typename T>
-  T *Allocate() {
-    return static_cast<T*>(Allocate(sizeof(T),AlignOf<T>::Alignment));
-  }
-
-  /// Allocate space for an array of objects.  This does not construct the
-  /// objects though.
-  template <typename T>
-  T *Allocate(size_t Num) {
-    return static_cast<T*>(Allocate(Num * sizeof(T), AlignOf<T>::Alignment));
-  }
-
-  /// Allocate space for a specific count of elements and with a specified
-  /// alignment.
-  template <typename T>
-  T *Allocate(size_t Num, size_t Alignment) {
-    // Round EltSize up to the specified alignment.
-    size_t EltSize = (sizeof(T)+Alignment-1)&(-Alignment);
-    return static_cast<T*>(Allocate(Num * EltSize, Alignment));
-  }
 
   void Deallocate(const void * /*Ptr*/) {}
 
   unsigned GetNumSlabs() const;
 
-  void PrintStats() const;
-  
   /// Compute the total physical memory allocated by this allocator.
   size_t getTotalMemory() const;
 };
 
-/// SpecificBumpPtrAllocator - Same as BumpPtrAllocator but allows only
-/// elements of one type to be allocated. This allows calling the destructor
-/// in DestroyAll() and when the allocator is destroyed.
-template <typename T>
-class SpecificBumpPtrAllocator {
-  BumpPtrAllocator Allocator;
-public:
-  SpecificBumpPtrAllocator(size_t size = 4096, size_t threshold = 4096,
-              SlabAllocator &allocator = BumpPtrAllocator::DefaultSlabAllocator)
-    : Allocator(size, threshold, allocator) {}
-
-  ~SpecificBumpPtrAllocator() {
-    DestroyAll();
-  }
-
-  /// Call the destructor of each allocated object and deallocate all but the
-  /// current slab and reset the current pointer to the beginning of it, freeing
-  /// all memory allocated so far.
-  void DestroyAll() {
-    MemSlab *Slab = Allocator.CurSlab;
-    while (Slab) {
-      char *End = Slab == Allocator.CurSlab ? Allocator.CurPtr :
-                                              (char *)Slab + Slab->Size;
-      for (char *Ptr = (char*)(Slab+1); Ptr < End; Ptr += sizeof(T)) {
-        Ptr = Allocator.AlignPtr(Ptr, AlignOf<T>::Alignment);
-        if (Ptr + sizeof(T) <= End)
-          reinterpret_cast<T*>(Ptr)->~T();
-      }
-      Slab = Slab->NextPtr;
-    }
-    Allocator.Reset();
-  }
-
-  /// Allocate space for a specific count of elements.
-  T *Allocate(size_t num = 1) {
-    return Allocator.Allocate<T>(num);
-  }
-};
-
 }  // end namespace llvm
-
-inline void *operator new(size_t Size, llvm::BumpPtrAllocator &Allocator) {
-  struct S {
-    char c;
-    union {
-      double D;
-      long double LD;
-      long long L;
-      void *P;
-    } x;
-  };
-  return Allocator.Allocate(Size, std::min((size_t)llvm::NextPowerOf2(Size),
-                                           offsetof(S, x)));
-}
-
-inline void operator delete(void *, llvm::BumpPtrAllocator &) {}
 
 #endif // LLVM_SUPPORT_ALLOCATOR_H

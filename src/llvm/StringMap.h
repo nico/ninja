@@ -171,18 +171,6 @@ public:
     return Create(KeyStart, KeyEnd, Allocator, 0);
   }
 
-  /// Create - Create a StringMapEntry with normal malloc/free.
-  template<typename InitType>
-  static StringMapEntry *Create(const char *KeyStart, const char *KeyEnd,
-                                InitType InitVal) {
-    MallocAllocator A;
-    return Create(KeyStart, KeyEnd, A, InitVal);
-  }
-
-  static StringMapEntry *Create(const char *KeyStart, const char *KeyEnd) {
-    return Create(KeyStart, KeyEnd, ValueTy());
-  }
-
   /// GetStringMapEntryFromValue - Given a value that is known to be embedded
   /// into a StringMapEntry, return the StringMapEntry itself.
   static StringMapEntry &GetStringMapEntryFromValue(ValueTy &V) {
@@ -210,12 +198,6 @@ public:
     // Free memory referenced by the item.
     this->~StringMapEntry();
     Allocator.Deallocate(this);
-  }
-
-  /// Destroy this object, releasing memory back to the malloc allocator.
-  void Destroy() {
-    MallocAllocator A;
-    Destroy(A);
   }
 };
 

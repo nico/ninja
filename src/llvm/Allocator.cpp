@@ -12,9 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "Allocator.h"
-//#include "Memory.h"
-//#include "Recycler.h"
-//#include "raw_ostream.h"
 #include <cstring>
 
 namespace llvm {
@@ -61,12 +58,6 @@ void BumpPtrAllocator::StartNewSlab() {
 void BumpPtrAllocator::DeallocateSlabs(MemSlab *Slab) {
   while (Slab) {
     MemSlab *NextSlab = Slab->NextPtr;
-#ifndef NDEBUG
-    // Poison the memory so stale pointers crash sooner.  Note we must
-    // preserve the Size and NextPtr fields at the beginning.
-    sys::Memory::setRangeWritable(Slab + 1, Slab->Size - sizeof(MemSlab));
-    memset(Slab + 1, 0xCD, Slab->Size - sizeof(MemSlab));
-#endif
     Allocator.Deallocate(Slab);
     Slab = NextSlab;
   }
@@ -144,21 +135,6 @@ size_t BumpPtrAllocator::getTotalMemory() const {
   return TotalMemory;
 }
   
-void BumpPtrAllocator::PrintStats() const {
-  unsigned NumSlabs = 0;
-  size_t TotalMemory = 0;
-  for (MemSlab *Slab = CurSlab; Slab != 0; Slab = Slab->NextPtr) {
-    TotalMemory += Slab->Size;
-    ++NumSlabs;
-  }
-
-  //errs() << "\nNumber of memory regions: " << NumSlabs << '\n'
-  //       << "Bytes used: " << BytesAllocated << '\n'
-  //       << "Bytes allocated: " << TotalMemory << '\n'
-  //       << "Bytes wasted: " << (TotalMemory - BytesAllocated)
-  //       << " (includes alignment, etc)\n";
-}
-
 MallocSlabAllocator BumpPtrAllocator::DefaultSlabAllocator =
   MallocSlabAllocator();
 
@@ -175,14 +151,6 @@ MemSlab *MallocSlabAllocator::Allocate(size_t Size) {
 
 void MallocSlabAllocator::Deallocate(MemSlab *Slab) {
   Allocator.Deallocate(Slab);
-}
-
-void PrintRecyclerStats(size_t Size,
-                        size_t Align,
-                        size_t FreeListSize) {
-  //errs() << "Recycler element size: " << Size << '\n'
-  //       << "Recycler element alignment: " << Align << '\n'
-  //       << "Number of elements free for recycling: " << FreeListSize << '\n';
 }
 
 }
