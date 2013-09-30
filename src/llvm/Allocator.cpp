@@ -16,10 +16,9 @@
 
 namespace llvm {
 
-BumpPtrAllocator::BumpPtrAllocator(size_t size, size_t threshold,
-                                   SlabAllocator &allocator)
+BumpPtrAllocator::BumpPtrAllocator(size_t size, size_t threshold)
     : SlabSize(size), SizeThreshold(std::min(size, threshold)),
-      Allocator(allocator), CurSlab(0), BytesAllocated(0) { }
+      CurSlab(0), BytesAllocated(0) { }
 
 BumpPtrAllocator::~BumpPtrAllocator() {
   DeallocateSlabs(CurSlab);
@@ -46,7 +45,7 @@ void BumpPtrAllocator::StartNewSlab() {
   if (BytesAllocated >= SlabSize * 128)
     SlabSize *= 2;
 
-  MemSlab *NewSlab = Allocator.Allocate(SlabSize);
+  MemSlab *NewSlab = AllocateSlab(SlabSize);
   NewSlab->NextPtr = CurSlab;
   CurSlab = NewSlab;
   CurPtr = (char*)(CurSlab + 1);
@@ -58,7 +57,7 @@ void BumpPtrAllocator::StartNewSlab() {
 void BumpPtrAllocator::DeallocateSlabs(MemSlab *Slab) {
   while (Slab) {
     MemSlab *NextSlab = Slab->NextPtr;
-    Allocator.Deallocate(Slab);
+    DeallocateSlab(Slab);
     Slab = NextSlab;
   }
 }
@@ -99,7 +98,7 @@ void *BumpPtrAllocator::Allocate(size_t Size, size_t Alignment) {
   // If Size is really big, allocate a separate slab for it.
   size_t PaddedSize = Size + sizeof(MemSlab) + Alignment - 1;
   if (PaddedSize > SizeThreshold) {
-    MemSlab *NewSlab = Allocator.Allocate(PaddedSize);
+    MemSlab *NewSlab = AllocateSlab(PaddedSize);
 
     // Put the new slab after the current slab, since we are not allocating
     // into it.
@@ -135,22 +134,15 @@ size_t BumpPtrAllocator::getTotalMemory() const {
   return TotalMemory;
 }
   
-MallocSlabAllocator BumpPtrAllocator::DefaultSlabAllocator =
-  MallocSlabAllocator();
-
-SlabAllocator::~SlabAllocator() { }
-
-MallocSlabAllocator::~MallocSlabAllocator() { }
-
-MemSlab *MallocSlabAllocator::Allocate(size_t Size) {
-  MemSlab *Slab = (MemSlab*)Allocator.Allocate(Size, 0);
+MemSlab *BumpPtrAllocator::AllocateSlab(size_t Size) {
+  MemSlab *Slab = (MemSlab*)malloc(Size);
   Slab->Size = Size;
   Slab->NextPtr = 0;
   return Slab;
 }
 
-void MallocSlabAllocator::Deallocate(MemSlab *Slab) {
-  Allocator.Deallocate(Slab);
+void BumpPtrAllocator::DeallocateSlab(MemSlab *Slab) {
+  free(Slab);
 }
 
 }

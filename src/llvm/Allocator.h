@@ -44,9 +44,6 @@ struct AlignOf {
          static_cast<unsigned int>(sizeof(AlignmentCalcImpl<T>) - sizeof(T)) };
 };
 
-template <typename T> struct ReferenceAdder { typedef T& result; };
-template <typename T> struct ReferenceAdder<T&> { typedef T result; };
-
 class MallocAllocator {
 public:
   MallocAllocator() {}
@@ -67,33 +64,6 @@ public:
   MemSlab *NextPtr;
 };
 
-/// SlabAllocator - This class can be used to parameterize the underlying
-/// allocation strategy for the bump allocator.  In particular, this is used
-/// by the JIT to allocate contiguous swathes of executable memory.  The
-/// interface uses MemSlab's instead of void *'s so that the allocator
-/// doesn't have to remember the size of the pointer it allocated.
-class SlabAllocator {
-public:
-  virtual ~SlabAllocator();
-  virtual MemSlab *Allocate(size_t Size) = 0;
-  virtual void Deallocate(MemSlab *Slab) = 0;
-};
-
-/// MallocSlabAllocator - The default slab allocator for the bump allocator
-/// is an adapter class for MallocAllocator that just forwards the method
-/// calls and translates the arguments.
-class MallocSlabAllocator : public SlabAllocator {
-  /// Allocator - The underlying allocator that we forward to.
-  ///
-  MallocAllocator Allocator;
-
-public:
-  MallocSlabAllocator() : Allocator() { }
-  virtual ~MallocSlabAllocator();
-  virtual MemSlab *Allocate(size_t Size);
-  virtual void Deallocate(MemSlab *Slab);
-};
-
 /// BumpPtrAllocator - This allocator is useful for containers that need
 /// very simple memory allocation strategies.  In particular, this just keeps
 /// allocating memory, and never deletes it until the entire block is dead. This
@@ -110,10 +80,8 @@ class BumpPtrAllocator {
   /// allocate a separate slab.
   size_t SizeThreshold;
 
-  /// Allocator - The underlying allocator we use to get slabs of memory.  This
-  /// defaults to MallocSlabAllocator, which wraps malloc, but it could be
-  /// changed to use a custom allocator.
-  SlabAllocator &Allocator;
+  MemSlab *AllocateSlab(size_t Size);
+  void DeallocateSlab(MemSlab *Slab);
 
   /// CurSlab - The slab that we are currently allocating into.
   MemSlab *CurSlab;
@@ -143,12 +111,9 @@ class BumpPtrAllocator {
   /// one.
   void DeallocateSlabs(MemSlab *Slab);
 
-  static MallocSlabAllocator DefaultSlabAllocator;
-
   template<typename T> friend class SpecificBumpPtrAllocator;
 public:
-  BumpPtrAllocator(size_t size = 4096, size_t threshold = 4096,
-                   SlabAllocator &allocator = DefaultSlabAllocator);
+  BumpPtrAllocator(size_t size = 4096, size_t threshold = 4096);
   ~BumpPtrAllocator();
 
   /// Reset - Deallocate all but the current slab and reset the current pointer
