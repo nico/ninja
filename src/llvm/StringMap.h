@@ -104,6 +104,27 @@ public:
   unsigned size() const { return NumItems; }
 };
 
+template <typename T>
+struct AlignmentCalcImpl {
+  char x;
+  T t;
+private:
+  AlignmentCalcImpl() {} // Never instantiate.
+};
+
+/// AlignOf - A templated class that contains an enum value representing
+///  the alignment of the template argument.  For example,
+///  AlignOf<int>::Alignment represents the alignment of type "int".  The
+///  alignment calculated is the minimum alignment, and not necessarily
+///  the "desired" alignment returned by GCC's __alignof__ (for example).  Note
+///  that because the alignment is an enum value, it can be used as a
+///  compile-time constant (e.g., for template instantiation).
+template <typename T>
+struct AlignOf {
+  enum { Alignment =
+         static_cast<unsigned int>(sizeof(AlignmentCalcImpl<T>) - sizeof(T)) };
+};
+
 /// StringMapEntry - This is used to represent one value that is inserted into
 /// a StringMap.  It contains the Value itself and the key: the string length
 /// and data.

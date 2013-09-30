@@ -23,27 +23,6 @@
 
 namespace llvm {
 
-template <typename T>
-struct AlignmentCalcImpl {
-  char x;
-  T t;
-private:
-  AlignmentCalcImpl() {} // Never instantiate.
-};
-
-/// AlignOf - A templated class that contains an enum value representing
-///  the alignment of the template argument.  For example,
-///  AlignOf<int>::Alignment represents the alignment of type "int".  The
-///  alignment calculated is the minimum alignment, and not necessarily
-///  the "desired" alignment returned by GCC's __alignof__ (for example).  Note
-///  that because the alignment is an enum value, it can be used as a
-///  compile-time constant (e.g., for template instantiation).
-template <typename T>
-struct AlignOf {
-  enum { Alignment =
-         static_cast<unsigned int>(sizeof(AlignmentCalcImpl<T>) - sizeof(T)) };
-};
-
 class MallocAllocator {
 public:
   MallocAllocator() {}
@@ -110,8 +89,6 @@ class BumpPtrAllocator {
   /// DeallocateSlabs - Deallocate all memory slabs after and including this
   /// one.
   void DeallocateSlabs(MemSlab *Slab);
-
-  template<typename T> friend class SpecificBumpPtrAllocator;
 public:
   BumpPtrAllocator(size_t size = 4096, size_t threshold = 4096);
   ~BumpPtrAllocator();
