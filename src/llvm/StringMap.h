@@ -177,12 +177,6 @@ public:
     return NewItem;
   }
 
-  template<typename AllocatorTy>
-  static StringMapEntry *Create(const char *KeyStart, const char *KeyEnd,
-                                AllocatorTy &Allocator) {
-    return Create(KeyStart, KeyEnd, Allocator, 0);
-  }
-
   // Given a value that is known to be embedded into a StringMapEntry, return
   // the StringMapEntry itself.
   static StringMapEntry &GetStringMapEntryFromValue(ValueTy &V) {
