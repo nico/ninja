@@ -113,8 +113,6 @@ template <typename ValueTy> class StringMapEntry : public StringMapEntryBase {
 public:
   ValueTy second;
 
-  explicit StringMapEntry(unsigned strLen)
-    : StringMapEntryBase(strLen), second() {}
   StringMapEntry(unsigned strLen, const ValueTy &V)
     : StringMapEntryBase(strLen), second(V) {}
 
@@ -152,13 +150,12 @@ public:
       static_cast<StringMapEntry*>(Allocator.Allocate(AllocSize,Alignment));
 
     // Default construct the value.
-    new (NewItem) StringMapEntry(KeyLength);
+    new (NewItem) StringMapEntry(KeyLength, InitVal);
 
     // Copy the string information.
     char *StrBuffer = const_cast<char*>(NewItem->getKeyData());
     memcpy(StrBuffer, KeyStart, KeyLength);
     StrBuffer[KeyLength] = 0;  // Null terminate for convenience of clients.
-    NewItem->second = InitVal;
     return NewItem;
   }
 
