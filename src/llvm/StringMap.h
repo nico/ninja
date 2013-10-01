@@ -23,19 +23,6 @@ template<typename ValueT> class StringMapConstIterator;
 template<typename ValueT> class StringMapIterator;
 template <typename ValueTy> class StringMapEntry;
 
-// This datatype can be partially specialized for various datatypes in a
-// stringmap to allow them to be initialized when an entry is default
-// constructed for the map.
-template<typename ValueTy>
-class StringMapEntryInitializer {
-public:
-  template <typename InitTy>
-  static void Initialize(StringMapEntry<ValueTy> &T, InitTy InitVal) {
-    T.second = InitVal;
-  }
-};
-
-
 // Shared base class of StringMapEntry instances.
 class StringMapEntryBase {
   unsigned StrLen;
@@ -171,9 +158,7 @@ public:
     char *StrBuffer = const_cast<char*>(NewItem->getKeyData());
     memcpy(StrBuffer, KeyStart, KeyLength);
     StrBuffer[KeyLength] = 0;  // Null terminate for convenience of clients.
-
-    // Initialize the value if the client wants to.
-    StringMapEntryInitializer<ValueTy>::Initialize(*NewItem, InitVal);
+    NewItem->second = InitVal;
     return NewItem;
   }
 
