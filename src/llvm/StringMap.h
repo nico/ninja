@@ -214,38 +214,13 @@ public:
 // string data *after* the value in the map.
 template<typename ValueTy, typename AllocatorTy = MallocAllocator>
 class StringMap : public StringMapImpl {
+  StringMap(const StringMap &RHS);
+  void operator=(const StringMap &RHS);
   AllocatorTy Allocator;
 public:
   typedef StringMapEntry<ValueTy> MapEntryTy;
   
   StringMap() : StringMapImpl(static_cast<unsigned>(sizeof(MapEntryTy))) {}
-  explicit StringMap(unsigned InitialSize)
-    : StringMapImpl(InitialSize, static_cast<unsigned>(sizeof(MapEntryTy))) {}
-
-  explicit StringMap(AllocatorTy A)
-    : StringMapImpl(static_cast<unsigned>(sizeof(MapEntryTy))), Allocator(A) {}
-
-  StringMap(unsigned InitialSize, AllocatorTy A)
-    : StringMapImpl(InitialSize, static_cast<unsigned>(sizeof(MapEntryTy))),
-      Allocator(A) {}
-
-  StringMap(const StringMap &RHS)
-    : StringMapImpl(static_cast<unsigned>(sizeof(MapEntryTy))) {
-    assert(RHS.empty() &&
-           "Copy ctor from non-empty stringmap not implemented yet!");
-    (void)RHS;
-  }
-  void operator=(const StringMap &RHS) {
-    assert(RHS.empty() &&
-           "assignment from non-empty stringmap not implemented yet!");
-    (void)RHS;
-    clear();
-  }
-
-  typedef const char* key_type;
-  typedef ValueTy mapped_type;
-  typedef StringMapEntry<ValueTy> value_type;
-  typedef size_t size_type;
 
   typedef StringMapConstIterator<ValueTy> const_iterator;
   typedef StringMapIterator<ValueTy> iterator;
@@ -288,7 +263,7 @@ public:
     return GetOrCreateValue(Key).getValue();
   }
 
-  size_type count(StringPiece Key) const {
+  size_t count(StringPiece Key) const {
     return find(Key) == end() ? 0 : 1;
   }
 
