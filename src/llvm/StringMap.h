@@ -222,6 +222,11 @@ public:
   
   StringMap() : StringMapImpl(static_cast<unsigned>(sizeof(MapEntryTy))) {}
 
+  ~StringMap() {
+    clear();
+    free(TheTable);
+  }
+
   typedef StringMapConstIterator<ValueTy> const_iterator;
   typedef StringMapIterator<ValueTy> iterator;
 
@@ -350,11 +355,6 @@ public:
     if (I == end()) return false;
     erase(I);
     return true;
-  }
-
-  ~StringMap() {
-    clear();
-    free(TheTable);
   }
 };
 
