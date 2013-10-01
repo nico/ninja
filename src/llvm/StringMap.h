@@ -219,13 +219,9 @@ class StringMap : public StringMapImpl {
   AllocatorTy Allocator;
 public:
   typedef StringMapEntry<ValueTy> MapEntryTy;
-  
-  StringMap() : StringMapImpl(static_cast<unsigned>(sizeof(MapEntryTy))) {}
 
-  ~StringMap() {
-    clear();
-    free(TheTable);
-  }
+  StringMap() : StringMapImpl(static_cast<unsigned>(sizeof(MapEntryTy))) {}
+  ~StringMap() { clear(); free(TheTable); }
 
   typedef StringMapConstIterator<ValueTy> const_iterator;
   typedef StringMapIterator<ValueTy> iterator;
