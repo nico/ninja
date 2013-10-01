@@ -120,16 +120,11 @@ public:
     return StringPiece(getKeyData(), getKeyLength());
   }
 
-  const ValueTy &getValue() const { return second; }
   ValueTy &getValue() { return second; }
-
-  void setValue(const ValueTy &V) { second = V; }
 
   // Return the start of the string data that is the key for this value.  The
   // string data is always stored immediately after the StringMapEntry object.
   const char *getKeyData() const {return reinterpret_cast<const char*>(this+1);}
-
-  StringPiece first() const { return StringPiece(getKeyData(), getKeyLength()); }
 
   // Create a StringMapEntry for the specified key and default construct the
   // value.
@@ -137,17 +132,12 @@ public:
   static StringMapEntry *Create(const char *KeyStart, const char *KeyEnd,
                                 AllocatorTy &Allocator, InitType InitVal) {
     unsigned KeyLength = static_cast<unsigned>(KeyEnd - KeyStart);
-
-    // Okay, the item doesn't already exist, and 'Bucket' is the bucket to fill
-    // in.  Allocate a new item with space for the string at the end and a null
-    // terminator.
-
-    unsigned AllocSize = static_cast<unsigned>(sizeof(StringMapEntry))+
-      KeyLength+1;
+    unsigned AllocSize =
+        static_cast<unsigned>(sizeof(StringMapEntry)) + KeyLength + 1;
     unsigned Alignment = AlignOf<StringMapEntry>::Alignment;
 
     StringMapEntry *NewItem =
-      static_cast<StringMapEntry*>(Allocator.Allocate(AllocSize,Alignment));
+        static_cast<StringMapEntry *>(Allocator.Allocate(AllocSize, Alignment));
 
     // Default construct the value.
     new (NewItem) StringMapEntry(KeyLength, InitVal);
@@ -157,26 +147,6 @@ public:
     memcpy(StrBuffer, KeyStart, KeyLength);
     StrBuffer[KeyLength] = 0;  // Null terminate for convenience of clients.
     return NewItem;
-  }
-
-  // Given a value that is known to be embedded into a StringMapEntry, return
-  // the StringMapEntry itself.
-  static StringMapEntry &GetStringMapEntryFromValue(ValueTy &V) {
-    StringMapEntry *EPtr = 0;
-    char *Ptr = reinterpret_cast<char*>(&V) -
-                  (reinterpret_cast<char*>(&EPtr->second) -
-                   reinterpret_cast<char*>(EPtr));
-    return *reinterpret_cast<StringMapEntry*>(Ptr);
-  }
-  static const StringMapEntry &GetStringMapEntryFromValue(const ValueTy &V) {
-    return GetStringMapEntryFromValue(const_cast<ValueTy&>(V));
-  }
-
-  // Given key data that is known to be embedded into a StringMapEntry, return
-  // the StringMapEntry itself.
-  static StringMapEntry &GetStringMapEntryFromKeyData(const char *KeyData) {
-    char *Ptr = const_cast<char*>(KeyData) - sizeof(StringMapEntry<ValueTy>);
-    return *reinterpret_cast<StringMapEntry*>(Ptr);
   }
 
   // Destroy this StringMapEntry, releasing memory back to the specified
@@ -295,6 +265,10 @@ public:
     StringMapEntryBase *&Bucket = TheTable[BucketNo];
     if (Bucket && Bucket != getTombstoneVal())
       return *static_cast<MapEntryTy*>(Bucket);
+
+    // Okay, the item doesn't already exist, and 'Bucket' is the bucket to fill
+    // in.  Allocate a new item with space for the string at the end and a null
+    // terminator.
 
     MapEntryTy *NewItem =
       MapEntryTy::Create(Key.begin(), Key.end(), Allocator, Val);
