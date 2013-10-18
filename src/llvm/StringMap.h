@@ -178,17 +178,13 @@ public:
   typedef StringMapConstIterator<ValueTy> const_iterator;
   typedef StringMapIterator<ValueTy> iterator;
 
-  iterator begin() {
-    return iterator(TheTable, NumBuckets == 0);
-  }
-  iterator end() {
-    return iterator(TheTable+NumBuckets, true);
-  }
+  iterator begin() { return iterator(TheTable, NumBuckets == 0); }
+  iterator end() { return iterator(TheTable + NumBuckets, true); }
   const_iterator begin() const {
     return const_iterator(TheTable, NumBuckets == 0);
   }
   const_iterator end() const {
-    return const_iterator(TheTable+NumBuckets, true);
+    return const_iterator(TheTable + NumBuckets, true);
   }
 
   iterator find(StringPiece Key) {
@@ -201,15 +197,6 @@ public:
     int Bucket = FindKey(Key);
     if (Bucket == -1) return end();
     return const_iterator(TheTable+Bucket, true);
-  }
-
-  // Return the entry for the specified key, or a default constructed value if
-  // no such entry exists.
-  ValueTy lookup(StringPiece Key) const {
-    const_iterator it = find(Key);
-    if (it != end())
-      return it->second;
-    return ValueTy();
   }
 
   ValueTy &operator[](StringPiece Key) {
@@ -239,7 +226,7 @@ public:
     return true;
   }
 
-  // clear - Empties out the StringMap
+  // Empties out the StringMap
   void clear() {
     if (empty()) return;
 
@@ -271,7 +258,7 @@ public:
     // terminator.
 
     MapEntryTy *NewItem =
-      MapEntryTy::Create(Key.begin(), Key.end(), Allocator, Val);
+        MapEntryTy::Create(Key.begin(), Key.end(), Allocator, Val);
 
     if (Bucket == getTombstoneVal())
       --NumTombstones;
