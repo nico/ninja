@@ -299,6 +299,11 @@ string Edge::GetUnescapedRspfile() {
   return env.LookupVariable("rspfile");
 }
 
+string Edge::GetUnescapedDescription() {
+  EdgeEnv env(this, EdgeEnv::kDoNotEscape);
+  return env.LookupVariable("description");
+}
+
 void Edge::Dump(const char* prefix) const {
   printf("%s[ ", prefix);
   for (vector<Node*>::const_iterator i = inputs_.begin();

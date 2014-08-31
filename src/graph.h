@@ -150,10 +150,12 @@ struct Edge {
   string GetBinding(const string& key);
   bool GetBindingBool(const string& key);
 
-  /// Like GetBinding("depfile"), but without shell escaping.
+  /// Like GetBinding("depfile"), but without shell escaping of $in/$out.
   string GetUnescapedDepfile();
-  /// Like GetBinding("rspfile"), but without shell escaping.
+  /// Like GetBinding("rspfile"), but without shell escaping of $in/$out.
   string GetUnescapedRspfile();
+  /// Like GetBinding("description"), but without shell escaping of $in/$out.
+  string GetUnescapedDescription();
 
   void Dump(const char* prefix="") const;
 

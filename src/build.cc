@@ -244,7 +244,7 @@ void BuildStatus::PrintStatus(Edge* edge) {
 
   bool force_full_command = config_.verbosity == BuildConfig::VERBOSE;
 
-  string to_print = edge->GetBinding("description");
+  string to_print = edge->GetUnescapedDescription();
   if (to_print.empty() || force_full_command)
     to_print = edge->GetBinding("command");
 
