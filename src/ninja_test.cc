@@ -71,4 +71,5 @@ int main(int argc, char **argv) {
   }
 
   printer.PrintOnNewLine(passed ? "passed\n" : "failed\n");
+  return passed ? EXIT_SUCCESS : EXIT_FAILURE;
 }
