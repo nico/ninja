@@ -42,20 +42,21 @@ string StringPrintf(const char* format, ...) {
   return buf;
 }
 
-void testing::Test::Check(bool condition, const char* file, int line,
+bool testing::Test::Check(bool condition, const char* file, int line,
                           const char* error) {
   if (!condition) {
     printer.PrintOnNewLine(
         StringPrintf("*** Failure in %s:%d\n%s\n", file, line, error));
     failed_ = true;
   }
+  return condition;
 }
 
 int main(int argc, char **argv) {
   int tests_started = 0;
 
   bool passed = true;
-  for (int i = 0; i < 2 /*ntests*/; i++) {
+  for (int i = 0; i < ntests; i++) {
     ++tests_started;
 
     testing::Test* test = tests[i]();

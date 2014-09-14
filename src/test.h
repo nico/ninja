@@ -31,7 +31,7 @@ struct Test {
   virtual void Run() = 0;
   virtual const char* Name() = 0;
 
-  void Check(bool condition, const char* file, int line, const char* error);
+  bool Check(bool condition, const char* file, int line, const char* error);
 };
 }
 
@@ -59,17 +59,17 @@ void RegisterTest(testing::Test* (*)());
 #define EXPECT_LT(a, b) Check(a < b, __FILE__, __LINE__, #a " < " #b)
 #define EXPECT_GE(a, b) Check(a >= b, __FILE__, __LINE__, #a " >= " #b)
 #define EXPECT_LE(a, b) Check(a <= b, __FILE__, __LINE__, #a " <= " #b)
-#define EXPECT_TRUE(a) Check(static_cast<bool>(a), __FILE__, __LINE__, #a)
+#define EXPECT_TRUE(a)  Check(static_cast<bool>(a), __FILE__, __LINE__, #a)
 #define EXPECT_FALSE(a) Check(!static_cast<bool>(a), __FILE__, __LINE__, #a)
 
-#define ASSERT_EQ(a, b) EXPECT_EQ(a, b); if (a != b) return
-#define ASSERT_NE(a, b) EXPECT_NE(a, b); if (a == b) return
-#define ASSERT_GT(a, b) EXPECT_GT(a, b); if (a <= b) return
-#define ASSERT_LT(a, b) EXPECT_LT(a, b); if (a >= b) return
-#define ASSERT_GE(a, b) EXPECT_GE(a, b); if (a < b) return
-#define ASSERT_LE(a, b) EXPECT_LE(a, b); if (a > b) return
-#define ASSERT_TRUE(a) EXPECT_TRUE(a); if (!static_cast<bool>(a)) return
-#define ASSERT_FALSE(a) EXPECT_FALSE(a); if (static_cast<bool>(a)) return
+#define ASSERT_EQ(a, b) if (!EXPECT_EQ(a, b)) return
+#define ASSERT_NE(a, b) if (!EXPECT_NE(a, b)) return
+#define ASSERT_GT(a, b) if (!EXPECT_GT(a, b)) return
+#define ASSERT_LT(a, b) if (!EXPECT_LT(a, b)) return
+#define ASSERT_GE(a, b) if (!EXPECT_GE(a, b)) return
+#define ASSERT_LE(a, b) if (!EXPECT_LE(a, b)) return
+#define ASSERT_TRUE(a)  if (!EXPECT_TRUE(a))  return
+#define ASSERT_FALSE(a) if (!EXPECT_FALSE(a)) return
 
 
 // Support utilites for tests.
