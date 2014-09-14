@@ -14,6 +14,8 @@
 
 #include "build.h"
 
+#include <assert.h>
+
 #include "build_log.h"
 #include "deps_log.h"
 #include "graph.h"
