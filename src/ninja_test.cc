@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
     test->SetUp();
     test->Run();
     test->TearDown();
-    if (test->failed_)
+    if (test->Failed())
       passed = false;
     delete test;
   }

@@ -22,31 +22,33 @@
 // A tiny testing framework inspired by googletest, but much simpler and
 // faster to compile.
 namespace testing {
-struct Test {
+class Test {
   bool failed_;
+ public:
   Test() : failed_(false) {}
   virtual ~Test() {}
   virtual void SetUp() {}
   virtual void TearDown() {}
   virtual void Run() = 0;
-  virtual const char* Name() = 0;
+  virtual const char* Name() const = 0;
 
+  bool Failed() const { return failed_; }
   bool Check(bool condition, const char* file, int line, const char* error);
 };
 }
 
 void RegisterTest(testing::Test* (*)());
 
-#define TEST_F_(x, y, name)                          \
-  struct y : public x {                              \
-    static testing::Test* Create() { return new y; } \
-    virtual void Run();                              \
-    virtual const char* Name() { return name; }      \
-  };                                                 \
-  struct Register##y {                               \
-    Register##y() { RegisterTest(y::Create); }       \
-  };                                                 \
-  Register##y g_register_##y;                        \
+#define TEST_F_(x, y, name)                           \
+  struct y : public x {                               \
+    static testing::Test* Create() { return new y; }  \
+    virtual void Run();                               \
+    virtual const char* Name() const { return name; } \
+  };                                                  \
+  struct Register##y {                                \
+    Register##y() { RegisterTest(y::Create); }        \
+  };                                                  \
+  Register##y g_register_##y;                         \
   void y::Run()
 
 #define TEST_F(x, y) TEST_F_(x, x##y, #x "." #y)
