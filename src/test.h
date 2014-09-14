@@ -20,7 +20,11 @@
 #include "util.h"
 
 // A tiny testing framework inspired by googletest, but much simpler and
-// faster to compile.
+// faster to compile. It supports most things commonly used from googltest. The
+// most noticeable things missing: EXPECT_* and ASSERT_* don't support
+// streaming notes to them with operator<<, and for failing tests the lhs and
+// rhs are not printed. That's so that this header does not have to include
+// sstream, which slows down building ninja_test almost 20%.
 namespace testing {
 class Test {
   bool failed_;
