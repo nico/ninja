@@ -25,7 +25,7 @@ struct GraphTest : public StateTestWithBuiltinRules {
 };
 
 TEST_F(GraphTest, MissingImplicit) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build out: cat in | implicit\n"));
   fs_.Create("in", "");
   fs_.Create("out", "");
@@ -42,7 +42,7 @@ TEST_F(GraphTest, MissingImplicit) {
 }
 
 TEST_F(GraphTest, ModifiedImplicit) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build out: cat in | implicit\n"));
   fs_.Create("in", "");
   fs_.Create("out", "");
@@ -59,7 +59,7 @@ TEST_F(GraphTest, ModifiedImplicit) {
 }
 
 TEST_F(GraphTest, FunkyMakefilePath) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule catdep\n"
 "  depfile = $out.d\n"
 "  command = cat $in > $out\n"
@@ -81,7 +81,7 @@ TEST_F(GraphTest, FunkyMakefilePath) {
 }
 
 TEST_F(GraphTest, ExplicitImplicit) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule catdep\n"
 "  depfile = $out.d\n"
 "  command = cat $in > $out\n"
@@ -106,7 +106,7 @@ TEST_F(GraphTest, ExplicitImplicit) {
 }
 
 TEST_F(GraphTest, PathWithCurrentDirectory) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule catdep\n"
 "  depfile = $out.d\n"
 "  command = cat $in > $out\n"
@@ -124,7 +124,7 @@ TEST_F(GraphTest, PathWithCurrentDirectory) {
 }
 
 TEST_F(GraphTest, RootNodes) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build out1: cat in1\n"
 "build mid1: cat in1\n"
 "build out2: cat mid1\n"
@@ -140,7 +140,7 @@ TEST_F(GraphTest, RootNodes) {
 }
 
 TEST_F(GraphTest, VarInOutPathEscaping) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build a$ b: cat no'space with$ space$$ no\"space2\n"));
 
   Edge* edge = GetNode("a b")->in_edge();
@@ -155,7 +155,7 @@ TEST_F(GraphTest, VarInOutPathEscaping) {
 
 // Regression test for https://github.com/martine/ninja/issues/380
 TEST_F(GraphTest, DepfileWithCanonicalizablePath) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule catdep\n"
 "  depfile = $out.d\n"
 "  command = cat $in > $out\n"
@@ -174,7 +174,7 @@ TEST_F(GraphTest, DepfileWithCanonicalizablePath) {
 
 // Regression test for https://github.com/martine/ninja/issues/404
 TEST_F(GraphTest, DepfileRemoved) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule catdep\n"
 "  depfile = $out.d\n"
 "  command = cat $in > $out\n"
@@ -200,7 +200,7 @@ TEST_F(GraphTest, DepfileRemoved) {
 
 // Check that rule-level variables are in scope for eval.
 TEST_F(GraphTest, RuleVariablesInScope) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule r\n"
 "  depfile = x\n"
 "  command = depfile is $depfile\n"
@@ -211,7 +211,7 @@ TEST_F(GraphTest, RuleVariablesInScope) {
 
 // Check that build statements can override rule builtins like depfile.
 TEST_F(GraphTest, DepfileOverride) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule r\n"
 "  depfile = x\n"
 "  command = unused\n"
@@ -223,7 +223,7 @@ TEST_F(GraphTest, DepfileOverride) {
 
 // Check that overridden values show up in expansion of rule-level bindings.
 TEST_F(GraphTest, DepfileOverrideParent) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule r\n"
 "  depfile = x\n"
 "  command = depfile is $depfile\n"

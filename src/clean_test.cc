@@ -26,7 +26,7 @@ struct CleanTest : public StateTestWithBuiltinRules {
 };
 
 TEST_F(CleanTest, CleanAll) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build in1: cat src1\n"
 "build out1: cat in1\n"
 "build in2: cat src2\n"
@@ -56,7 +56,7 @@ TEST_F(CleanTest, CleanAll) {
 }
 
 TEST_F(CleanTest, CleanAllDryRun) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build in1: cat src1\n"
 "build out1: cat in1\n"
 "build in2: cat src2\n"
@@ -87,7 +87,7 @@ TEST_F(CleanTest, CleanAllDryRun) {
 }
 
 TEST_F(CleanTest, CleanTarget) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build in1: cat src1\n"
 "build out1: cat in1\n"
 "build in2: cat src2\n"
@@ -117,7 +117,7 @@ TEST_F(CleanTest, CleanTarget) {
 }
 
 TEST_F(CleanTest, CleanTargetDryRun) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build in1: cat src1\n"
 "build out1: cat in1\n"
 "build in2: cat src2\n"
@@ -148,7 +148,7 @@ TEST_F(CleanTest, CleanTargetDryRun) {
 }
 
 TEST_F(CleanTest, CleanRule) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule cat_e\n"
 "  command = cat -e $in > $out\n"
 "build in1: cat_e src1\n"
@@ -180,7 +180,7 @@ TEST_F(CleanTest, CleanRule) {
 }
 
 TEST_F(CleanTest, CleanRuleDryRun) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule cat_e\n"
 "  command = cat -e $in > $out\n"
 "build in1: cat_e src1\n"
@@ -213,7 +213,7 @@ TEST_F(CleanTest, CleanRuleDryRun) {
 }
 
 TEST_F(CleanTest, CleanRuleGenerator) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule regen\n"
 "  command = cat $in > $out\n"
 "  generator = 1\n"
@@ -235,7 +235,7 @@ TEST_F(CleanTest, CleanRuleGenerator) {
 }
 
 TEST_F(CleanTest, CleanDepFile) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule cc\n"
 "  command = cc $in > $out\n"
 "  depfile = $out.d\n"
@@ -250,7 +250,7 @@ TEST_F(CleanTest, CleanDepFile) {
 }
 
 TEST_F(CleanTest, CleanDepFileOnCleanTarget) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule cc\n"
 "  command = cc $in > $out\n"
 "  depfile = $out.d\n"
@@ -265,7 +265,7 @@ TEST_F(CleanTest, CleanDepFileOnCleanTarget) {
 }
 
 TEST_F(CleanTest, CleanDepFileOnCleanRule) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule cc\n"
 "  command = cc $in > $out\n"
 "  depfile = $out.d\n"
@@ -280,7 +280,7 @@ TEST_F(CleanTest, CleanDepFileOnCleanRule) {
 }
 
 TEST_F(CleanTest, CleanRspFile) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule cc\n"
 "  command = cc $in > $out\n"
 "  rspfile = $rspfile\n"
@@ -297,7 +297,7 @@ TEST_F(CleanTest, CleanRspFile) {
 }
 
 TEST_F(CleanTest, CleanRsp) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule cat_rsp \n"
 "  command = cat $rspfile > $out\n"
 "  rspfile = $rspfile\n"
@@ -337,7 +337,7 @@ TEST_F(CleanTest, CleanRsp) {
 }
 
 TEST_F(CleanTest, CleanFailure) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
                                       "build dir: cat src1\n"));
   fs_.MakeDir("dir");
   Cleaner cleaner(&state_, config_, &fs_);
@@ -345,7 +345,7 @@ TEST_F(CleanTest, CleanFailure) {
 }
 
 TEST_F(CleanTest, CleanPhony) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build phony: phony t1 t2\n"
 "build t1: cat\n"
 "build t2: cat\n"));
@@ -370,7 +370,7 @@ TEST_F(CleanTest, CleanPhony) {
 }
 
 TEST_F(CleanTest, CleanDepFileAndRspFileWithSpaces) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule cc_dep\n"
 "  command = cc $in > $out\n"
 "  depfile = $out.d\n"

@@ -19,6 +19,7 @@
 #include "line_printer.h"
 
 static testing::Test* (*tests[10000])();
+testing::Test* g_current_test;
 static int ntests;
 static LinePrinter printer;
 

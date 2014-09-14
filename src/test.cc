@@ -79,8 +79,8 @@ StateTestWithBuiltinRules::StateTestWithBuiltinRules() {
   AddCatRule(&state_);
 }
 
-bool StateTestWithBuiltinRules::AddCatRule(State* state) {
-  return AssertParse(state,
+void StateTestWithBuiltinRules::AddCatRule(State* state) {
+  AssertParse(state,
 "rule cat\n"
 "  command = cat $in > $out\n");
 }
@@ -89,22 +89,15 @@ Node* StateTestWithBuiltinRules::GetNode(const string& path) {
   return state_.GetNode(path);
 }
 
-bool AssertParse(State* state, const char* input, FileReader* reader) {
-  ManifestParser parser(state, reader);
+void AssertParse(State* state, const char* input) {
+  ManifestParser parser(state, NULL);
   string err;
-  if (!parser.ParseTest(input, &err)) {
-    fprintf(stderr, "Parse error \'%s\'\n", err.c_str());
-    return false;
-  }
-  if (err != "") {
-    fprintf(stderr, "Parse succeeded, but set error \'%s\'\n", err.c_str());
-    return false;
-  }
-  return true;
+  EXPECT_TRUE(parser.ParseTest(input, &err));
+  ASSERT_EQ("", err);
 }
 
-bool AssertHash(const char* expected, uint64_t actual) {
-  return BuildLog::LogEntry::HashCommand(expected) ==  actual;
+void AssertHash(const char* expected, uint64_t actual) {
+  ASSERT_EQ(BuildLog::LogEntry::HashCommand(expected), actual);
 }
 
 void VirtualFileSystem::Create(const string& path,

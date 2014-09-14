@@ -198,7 +198,7 @@ TimeStamp StatTest::Stat(const string& path) const {
 }
 
 TEST_F(StatTest, Simple) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build out: cat in\n"));
 
   Node* out = GetNode("out");
@@ -211,7 +211,7 @@ TEST_F(StatTest, Simple) {
 }
 
 TEST_F(StatTest, TwoStep) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build out: cat mid\n"
 "build mid: cat in\n"));
 
@@ -228,7 +228,7 @@ TEST_F(StatTest, TwoStep) {
 }
 
 TEST_F(StatTest, Tree) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build out: cat mid1 mid2\n"
 "build mid1: cat in11 in12\n"
 "build mid2: cat in21 in22\n"));
@@ -244,7 +244,7 @@ TEST_F(StatTest, Tree) {
 }
 
 TEST_F(StatTest, Middle) {
-  ASSERT_TRUE(AssertParse(&state_,
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "build out: cat mid\n"
 "build mid: cat in\n"));
 
