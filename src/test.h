@@ -15,11 +15,49 @@
 #ifndef NINJA_TEST_H_
 #define NINJA_TEST_H_
 
-#include <gtest/gtest.h>
-
 #include "disk_interface.h"
 #include "state.h"
 #include "util.h"
+
+// A tiny testing framework inspired by googletest, but much simpler and
+// faster to compile.
+namespace testing {
+struct Test {
+  virtual void SetUp() {}
+  virtual void TearDown() {}
+  virtual bool Run() = 0;
+  virtual const char* Name() = 0;
+
+  virtual void Check(bool condition, const char* error);
+};
+}
+
+void RegisterTest(Test* t);
+
+#define TEST_F_(x, y, name)                      \
+  class x##y : public x {                        \
+    x##y() { RegisterTest(this, name); }         \
+    virtual const char* Name() { return #name; } \
+    virtual bool Run();                          \
+  };                                             \
+  x##y g_instance_##x##y;                        \
+  x##y::Run()
+
+#define TEST_F(x, y) TEST_F_(x, y, x##.##y)
+#define TEST(x, y) TEST_F_(testing::Test, x##y, x##.##y)
+
+// XXX probably want to include file name, line number, value
+#define EXPECT_EQ(a, b) Check(a == b, #a " == " #b)
+#define EXPECT_NE(a, b) Check(a != b, #a " != " #b)
+#define EXPECT_GT(a, b) Check(a > b, #a " > " #b)
+#define EXPECT_TRUE(a) Check(static_cast<bool>(a), #a)
+#define EXPECT_FALSE(a) Check(!static_cast<bool(b), #b)
+
+#define ASSERT_EQ(a, b) EXPECT_EQ(a, b); if (a != b) return false
+#define ASSERT_NE(a, b) EXPECT_NE(a, b); if (a == b) return false
+#define ASSERT_TRUE(a) EXPECT_TRUE(a); if (!static_cast<bool>(a)) return false
+#define ASSERT_FALSE(a) EXPECT_FALSE(a) if (static_cast<bool>(a)) return false
+
 
 // Support utilites for tests.
 
@@ -27,7 +65,7 @@ struct Node;
 
 /// A base test fixture that includes a State object with a
 /// builtin "cat" rule.
-struct StateTestWithBuiltinRules : public testing::Test {
+struct StateTestWithBuiltinRules : public Test {
   StateTestWithBuiltinRules();
 
   /// Add a "cat" rule to \a state.  Used by some tests; it's
