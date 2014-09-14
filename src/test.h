@@ -35,7 +35,6 @@ struct Test {
 };
 }
 
-//void RegisterTest(testing::Test* t);
 void RegisterTest(testing::Test* (*)());
 
 #define TEST_F_(x, y, name)                          \

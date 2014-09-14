@@ -18,14 +18,10 @@
 #include "test.h"
 #include "line_printer.h"
 
-//static testing::Test* tests[10000];
 static testing::Test* (*tests[10000])();
 static int ntests;
 static LinePrinter printer;
 
-//void RegisterTest(testing::Test* test) {
-  //tests[ntests++] = test;
-//}
 void RegisterTest(testing::Test* (*factory)()) {
   tests[ntests++] = factory;
 }
