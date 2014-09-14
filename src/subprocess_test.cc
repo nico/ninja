@@ -176,9 +176,10 @@ TEST_F(SubprocessTest, SetWithLots) {
   // Make sure [ulimit -n] isn't going to stop us from working.
   rlimit rlim;
   ASSERT_EQ(0, getrlimit(RLIMIT_NOFILE, &rlim));
-  ASSERT_GT(rlim.rlim_cur, kNumProcs)
-      << "Raise [ulimit -n] well above " << kNumProcs
-      << " to make this test go";
+  if (!EXPECT_GT(rlim.rlim_cur, kNumProcs)) {
+    printf("Raise [ulimit -n] well above %u to make this test go\n", kNumProcs);
+    return;
+  }
 
   vector<Subprocess*> procs;
   for (size_t i = 0; i < kNumProcs; ++i) {
