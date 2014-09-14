@@ -15,14 +15,19 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#include "gtest/gtest.h"
+#include "test.h"
 #include "line_printer.h"
 
-static Test* tests[10000];
+//static testing::Test* tests[10000];
+static testing::Test* (*tests[10000])();
 static int ntests;
+static LinePrinter printer;
 
-void RegisterTest(Test* test) {
-  tests[ntests++] = test;
+//void RegisterTest(testing::Test* test) {
+  //tests[ntests++] = test;
+//}
+void RegisterTest(testing::Test* (*factory)()) {
+  tests[ntests++] = factory;
 }
 
 string StringPrintf(const char* format, ...) {
@@ -37,27 +42,35 @@ string StringPrintf(const char* format, ...) {
   return buf;
 }
 
+void testing::Test::Check(bool condition, const char* file, int line,
+                          const char* error) {
+  if (!condition) {
+    printer.PrintOnNewLine(
+        StringPrintf("*** Failure in %s:%d\n%s\n", file, line, error));
+    failed_ = true;
+  }
+}
+
 int main(int argc, char **argv) {
-  LinePrinter printer_;
   int tests_started = 0;
 
   bool passed = true;
-  for (int i = 0; i < ntests; i++) {
+  for (int i = 0; i < 2 /*ntests*/; i++) {
     ++tests_started;
-    printer_.Print(
-        StringPrintf("[%d/%d] %s", tests_started, ntests, tests[i]->Name()),
+
+    testing::Test* test = tests[i]();
+
+    printer.Print(
+        StringPrintf("[%d/%d] %s", tests_started, ntests, test->Name()),
         LinePrinter::ELIDE);
 
-    tests[i]->SetUp();
-    if (!tests[i]->Run()) {
+    test->SetUp();
+    test->Run();
+    test->TearDown();
+    if (test->failed_)
       passed = false;
-      // XXX: acceptable error messages
-      //printer_.PrintOnNewLine(StringPrintf(
-      //    "*** Failure in %s:%d\n%s\n", test_part_result.file_name(),
-      //    test_part_result.line_number(), test_part_result.summary()));
-    }
-    tests[i]->TearDown();
+    delete test;
   }
 
-  printer_.PrintOnNewLine(passed ? "passed\n" : "failed\n");
+  printer.PrintOnNewLine(passed ? "passed\n" : "failed\n");
 }

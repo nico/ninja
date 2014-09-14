@@ -36,7 +36,7 @@
 #include "state.h"
 #include "util.h"
 
-struct RealFileReader : public ManifestParser::FileReader {
+struct RealFileReader : public FileReader {
   virtual bool ReadFile(const string& path, string* content, string* err) {
     return ::ReadFile(path, content, err) == 0;
   }

@@ -23,40 +23,53 @@
 // faster to compile.
 namespace testing {
 struct Test {
+  bool failed_;
+  Test() : failed_(false) {}
+  virtual ~Test() {}
   virtual void SetUp() {}
   virtual void TearDown() {}
-  virtual bool Run() = 0;
+  virtual void Run() = 0;
   virtual const char* Name() = 0;
 
-  virtual void Check(bool condition, const char* error);
+  void Check(bool condition, const char* file, int line, const char* error);
 };
 }
 
-void RegisterTest(Test* t);
+//void RegisterTest(testing::Test* t);
+void RegisterTest(testing::Test* (*)());
 
-#define TEST_F_(x, y, name)                      \
-  class x##y : public x {                        \
-    x##y() { RegisterTest(this, name); }         \
-    virtual const char* Name() { return #name; } \
-    virtual bool Run();                          \
-  };                                             \
-  x##y g_instance_##x##y;                        \
-  x##y::Run()
+#define TEST_F_(x, y, name)                          \
+  struct y : public x {                              \
+    static testing::Test* Create() { return new y; } \
+    virtual void Run();                              \
+    virtual const char* Name() { return name; }      \
+  };                                                 \
+  struct Register##y {                               \
+    Register##y() { RegisterTest(y::Create); }       \
+  };                                                 \
+  Register##y g_register_##y;                        \
+  void y::Run()
 
-#define TEST_F(x, y) TEST_F_(x, y, x##.##y)
-#define TEST(x, y) TEST_F_(testing::Test, x##y, x##.##y)
+#define TEST_F(x, y) TEST_F_(x, x##y, #x "." #y)
+#define TEST(x, y) TEST_F_(testing::Test, x##y, #x "." #y)
 
-// XXX probably want to include file name, line number, value
-#define EXPECT_EQ(a, b) Check(a == b, #a " == " #b)
-#define EXPECT_NE(a, b) Check(a != b, #a " != " #b)
-#define EXPECT_GT(a, b) Check(a > b, #a " > " #b)
-#define EXPECT_TRUE(a) Check(static_cast<bool>(a), #a)
-#define EXPECT_FALSE(a) Check(!static_cast<bool(b), #b)
+#define EXPECT_EQ(a, b) Check(a == b, __FILE__, __LINE__, #a " == " #b)
+#define EXPECT_NE(a, b) Check(a != b, __FILE__, __LINE__, #a " != " #b)
+#define EXPECT_GT(a, b) Check(a > b, __FILE__, __LINE__, #a " > " #b)
+#define EXPECT_LT(a, b) Check(a < b, __FILE__, __LINE__, #a " < " #b)
+#define EXPECT_GE(a, b) Check(a >= b, __FILE__, __LINE__, #a " >= " #b)
+#define EXPECT_LE(a, b) Check(a <= b, __FILE__, __LINE__, #a " <= " #b)
+#define EXPECT_TRUE(a) Check(static_cast<bool>(a), __FILE__, __LINE__, #a)
+#define EXPECT_FALSE(a) Check(!static_cast<bool>(a), __FILE__, __LINE__, #a)
 
-#define ASSERT_EQ(a, b) EXPECT_EQ(a, b); if (a != b) return false
-#define ASSERT_NE(a, b) EXPECT_NE(a, b); if (a == b) return false
-#define ASSERT_TRUE(a) EXPECT_TRUE(a); if (!static_cast<bool>(a)) return false
-#define ASSERT_FALSE(a) EXPECT_FALSE(a) if (static_cast<bool>(a)) return false
+#define ASSERT_EQ(a, b) EXPECT_EQ(a, b); if (a != b) return
+#define ASSERT_NE(a, b) EXPECT_NE(a, b); if (a == b) return
+#define ASSERT_GT(a, b) EXPECT_GT(a, b); if (a <= b) return
+#define ASSERT_LT(a, b) EXPECT_LT(a, b); if (a >= b) return
+#define ASSERT_GE(a, b) EXPECT_GE(a, b); if (a < b) return
+#define ASSERT_LE(a, b) EXPECT_LE(a, b); if (a > b) return
+#define ASSERT_TRUE(a) EXPECT_TRUE(a); if (!static_cast<bool>(a)) return
+#define ASSERT_FALSE(a) EXPECT_FALSE(a); if (static_cast<bool>(a)) return
 
 
 // Support utilites for tests.
@@ -65,12 +78,12 @@ struct Node;
 
 /// A base test fixture that includes a State object with a
 /// builtin "cat" rule.
-struct StateTestWithBuiltinRules : public Test {
+struct StateTestWithBuiltinRules : public testing::Test {
   StateTestWithBuiltinRules();
 
   /// Add a "cat" rule to \a state.  Used by some tests; it's
   /// otherwise done by the ctor to state_.
-  void AddCatRule(State* state);
+  bool AddCatRule(State* state);
 
   /// Short way to get a Node by its path from state_.
   Node* GetNode(const string& path);
@@ -78,8 +91,9 @@ struct StateTestWithBuiltinRules : public Test {
   State state_;
 };
 
-void AssertParse(State* state, const char* input);
-void AssertHash(const char* expected, uint64_t actual);
+struct FileReader;
+bool AssertParse(State* state, const char* input, FileReader* reader = NULL);
+bool AssertHash(const char* expected, uint64_t actual);
 
 /// An implementation of DiskInterface that uses an in-memory representation
 /// of disk state.  It also logs file accesses and directory creations

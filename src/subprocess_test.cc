@@ -92,7 +92,7 @@ TEST_F(SubprocessTest, InterruptParent) {
       return;
   }
 
-  ADD_FAILURE() << "We should have been interrupted";
+  ASSERT_FALSE("We should have been interrupted");
 }
 
 TEST_F(SubprocessTest, Console) {

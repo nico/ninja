@@ -113,7 +113,7 @@ TEST_F(BuildLogTest, DoubleEntry) {
 
   BuildLog::LogEntry* e = log.LookupByOutput("out");
   ASSERT_TRUE(e);
-  ASSERT_NO_FATAL_FAILURE(AssertHash("command def", e->command_hash));
+  ASSERT_TRUE(AssertHash("command def", e->command_hash));
 }
 
 TEST_F(BuildLogTest, Truncate) {
@@ -180,7 +180,7 @@ TEST_F(BuildLogTest, SpacesInOutputV4) {
   ASSERT_EQ(123, e->start_time);
   ASSERT_EQ(456, e->end_time);
   ASSERT_EQ(456, e->restat_mtime);
-  ASSERT_NO_FATAL_FAILURE(AssertHash("command", e->command_hash));
+  ASSERT_TRUE(AssertHash("command", e->command_hash));
 }
 
 TEST_F(BuildLogTest, DuplicateVersionHeader) {
@@ -204,14 +204,14 @@ TEST_F(BuildLogTest, DuplicateVersionHeader) {
   ASSERT_EQ(123, e->start_time);
   ASSERT_EQ(456, e->end_time);
   ASSERT_EQ(456, e->restat_mtime);
-  ASSERT_NO_FATAL_FAILURE(AssertHash("command", e->command_hash));
+  ASSERT_TRUE(AssertHash("command", e->command_hash));
 
   e = log.LookupByOutput("out2");
   ASSERT_TRUE(e);
   ASSERT_EQ(456, e->start_time);
   ASSERT_EQ(789, e->end_time);
   ASSERT_EQ(789, e->restat_mtime);
-  ASSERT_NO_FATAL_FAILURE(AssertHash("command2", e->command_hash));
+  ASSERT_TRUE(AssertHash("command2", e->command_hash));
 }
 
 TEST_F(BuildLogTest, VeryLongInputLine) {
@@ -239,7 +239,7 @@ TEST_F(BuildLogTest, VeryLongInputLine) {
   ASSERT_EQ(456, e->start_time);
   ASSERT_EQ(789, e->end_time);
   ASSERT_EQ(789, e->restat_mtime);
-  ASSERT_NO_FATAL_FAILURE(AssertHash("command2", e->command_hash));
+  ASSERT_TRUE(AssertHash("command2", e->command_hash));
 }
 
 TEST_F(BuildLogTest, MultiTargetEdge) {

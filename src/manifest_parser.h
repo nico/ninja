@@ -25,12 +25,13 @@ struct BindingEnv;
 struct EvalString;
 struct State;
 
+struct FileReader {
+  virtual ~FileReader() {}
+  virtual bool ReadFile(const string& path, string* content, string* err) = 0;
+};
+
 /// Parses .ninja files.
 struct ManifestParser {
-  struct FileReader {
-    virtual ~FileReader() {}
-    virtual bool ReadFile(const string& path, string* content, string* err) = 0;
-  };
 
   ManifestParser(State* state, FileReader* file_reader);
 

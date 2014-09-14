@@ -17,18 +17,13 @@
 #include <map>
 #include <vector>
 
-#include <gtest/gtest.h>
-
 #include "graph.h"
 #include "state.h"
+#include "test.h"
 
-struct ParserTest : public testing::Test,
-                    public ManifestParser::FileReader {
-  void AssertParse(const char* input) {
-    ManifestParser parser(&state, this);
-    string err;
-    ASSERT_TRUE(parser.ParseTest(input, &err)) << err;
-    ASSERT_EQ("", err);
+struct ParserTest : public testing::Test, public FileReader {
+  bool AssertParse(const char* input) {
+    return ::AssertParse(&state, input, this);
   }
 
   virtual bool ReadFile(const string& path, string* content, string* err) {
@@ -48,11 +43,11 @@ struct ParserTest : public testing::Test,
 };
 
 TEST_F(ParserTest, Empty) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(""));
+  ASSERT_TRUE(AssertParse(""));
 }
 
 TEST_F(ParserTest, Rules) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat\n"
 "  command = cat $in > $out\n"
 "\n"
@@ -70,7 +65,7 @@ TEST_F(ParserTest, Rules) {
 
 TEST_F(ParserTest, RuleAttributes) {
   // Check that all of the allowed rule attributes are parsed ok.
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat\n"
 "  command = a\n"
 "  depfile = a\n"
@@ -84,7 +79,7 @@ TEST_F(ParserTest, RuleAttributes) {
 }
 
 TEST_F(ParserTest, IgnoreIndentedComments) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "  #indented comment\n"
 "rule cat\n"
 "  command = cat $in > $out\n"
@@ -104,7 +99,7 @@ TEST_F(ParserTest, IgnoreIndentedComments) {
 
 TEST_F(ParserTest, IgnoreIndentedBlankLines) {
   // the indented blanks used to cause parse errors
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "  \n"
 "rule cat\n"
 "  command = cat $in > $out\n"
@@ -118,7 +113,7 @@ TEST_F(ParserTest, IgnoreIndentedBlankLines) {
 }
 
 TEST_F(ParserTest, ResponseFiles) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat_rsp\n"
 "  command = cat $rspfile > $out\n"
 "  rspfile = $rspfile\n"
@@ -137,7 +132,7 @@ TEST_F(ParserTest, ResponseFiles) {
 }
 
 TEST_F(ParserTest, InNewline) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat_rsp\n"
 "  command = cat $in_newline > $out\n"
 "\n"
@@ -155,7 +150,7 @@ TEST_F(ParserTest, InNewline) {
 }
 
 TEST_F(ParserTest, Variables) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "l = one-letter-test\n"
 "rule link\n"
 "  command = ld $l $extra $with_under -o $out $in\n"
@@ -180,7 +175,7 @@ TEST_F(ParserTest, Variables) {
 }
 
 TEST_F(ParserTest, VariableScope) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "foo = bar\n"
 "rule cmd\n"
 "  command = cmd $foo $in $out\n"
@@ -197,7 +192,7 @@ TEST_F(ParserTest, VariableScope) {
 }
 
 TEST_F(ParserTest, Continuation) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule link\n"
 "  command = foo bar $\n"
 "    baz\n"
@@ -212,7 +207,7 @@ TEST_F(ParserTest, Continuation) {
 }
 
 TEST_F(ParserTest, Backslash) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "foo = bar\\baz\n"
 "foo2 = bar\\ baz\n"
 ));
@@ -221,14 +216,14 @@ TEST_F(ParserTest, Backslash) {
 }
 
 TEST_F(ParserTest, Comment) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "# this is a comment\n"
 "foo = not # a comment\n"));
   EXPECT_EQ("not # a comment", state.bindings_.LookupVariable("foo"));
 }
 
 TEST_F(ParserTest, Dollars) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule foo\n"
 "  command = ${out}bar$$baz$$$\n"
 "blah\n"
@@ -244,7 +239,7 @@ TEST_F(ParserTest, Dollars) {
 }
 
 TEST_F(ParserTest, EscapeSpaces) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule spaces\n"
 "  command = something\n"
 "build foo$ bar: spaces $$one two$$$ three\n"
@@ -257,7 +252,7 @@ TEST_F(ParserTest, EscapeSpaces) {
 }
 
 TEST_F(ParserTest, CanonicalizeFile) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat\n"
 "  command = cat $in > $out\n"
 "build out: cat in/1 in//2\n"
@@ -271,7 +266,7 @@ TEST_F(ParserTest, CanonicalizeFile) {
 }
 
 TEST_F(ParserTest, PathVariables) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat\n"
 "  command = cat $in > $out\n"
 "dir = out\n"
@@ -282,7 +277,7 @@ TEST_F(ParserTest, PathVariables) {
 }
 
 TEST_F(ParserTest, CanonicalizePaths) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat\n"
 "  command = cat $in > $out\n"
 "build ./out.o: cat ./bar/baz/../foo.cc\n"));
@@ -294,7 +289,7 @@ TEST_F(ParserTest, CanonicalizePaths) {
 }
 
 TEST_F(ParserTest, ReservedWords) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule build\n"
 "  command = rule run $out\n"
 "build subninja: build include default foo.cc\n"
@@ -735,7 +730,7 @@ TEST_F(ParserTest, SubNinja) {
   files_["test.ninja"] =
     "var = inner\n"
     "build $builddir/inner: varref\n";
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "builddir = some_dir/\n"
 "rule varref\n"
 "  command = varref $var\n"
@@ -783,7 +778,7 @@ TEST_F(ParserTest, DuplicateRuleInDifferentSubninjas) {
 
 TEST_F(ParserTest, Include) {
   files_["include.ninja"] = "var = inner\n";
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "var = outer\n"
 "include include.ninja\n"));
 
@@ -804,7 +799,7 @@ TEST_F(ParserTest, BrokenInclude) {
 }
 
 TEST_F(ParserTest, Implicit) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat\n"
 "  command = cat $in > $out\n"
 "build foo: cat bar | baz\n"));
@@ -814,7 +809,7 @@ TEST_F(ParserTest, Implicit) {
 }
 
 TEST_F(ParserTest, OrderOnly) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat\n  command = cat $in > $out\n"
 "build foo: cat bar || baz\n"));
 
@@ -823,7 +818,7 @@ TEST_F(ParserTest, OrderOnly) {
 }
 
 TEST_F(ParserTest, DefaultDefault) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat\n  command = cat $in > $out\n"
 "build a: cat foo\n"
 "build b: cat foo\n"
@@ -836,7 +831,7 @@ TEST_F(ParserTest, DefaultDefault) {
 }
 
 TEST_F(ParserTest, DefaultStatements) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule cat\n  command = cat $in > $out\n"
 "build a: cat foo\n"
 "build b: cat foo\n"
@@ -856,7 +851,7 @@ TEST_F(ParserTest, DefaultStatements) {
 }
 
 TEST_F(ParserTest, UTF8) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(
+  ASSERT_TRUE(AssertParse(
 "rule utf8\n"
 "  command = true\n"
 "  description = compilaci\xC3\xB3\n"));
