@@ -15,6 +15,8 @@
 #ifndef NINJA_TEST_H_
 #define NINJA_TEST_H_
 
+#include <sstream>
+
 #include "disk_interface.h"
 #include "state.h"
 #include "util.h"
@@ -29,6 +31,18 @@ namespace testing {
 class Test {
   bool failed_;
   int assertion_failures_;
+  void CheckFailed(const char* file, int line, const string& error);
+  template <class U, class V>
+  bool Check(bool condition, const char* file, int line, const char* error,
+             const U& lhs, const V& rhs) {
+    if (!condition) {
+      ostringstream stream;
+      stream << error << " lhs: " << lhs << " rhs: " << rhs;
+      CheckFailed(file, line, stream.str());
+    }
+    return condition;
+  }
+
  public:
   Test() : failed_(false), assertion_failures_(0) {}
   virtual ~Test() {}
@@ -40,7 +54,45 @@ class Test {
   bool Failed() const { return failed_; }
   int AssertionFailures() const { return assertion_failures_; }
   void AddAssertionFailure() { assertion_failures_++; }
-  bool Check(bool condition, const char* file, int line, const char* error);
+
+  template <class U, class V>
+  bool CheckEQ(const char* file, int line, const char* error,
+               const U& lhs, const V& rhs) {
+    return Check(lhs == rhs, file, line, error, lhs, rhs);
+  }
+  template <class U, class V>
+  bool CheckNE(const char* file, int line, const char* error,
+               const U& lhs, const V& rhs) {
+    return Check(lhs != rhs, file, line, error, lhs, rhs);
+  }
+  template <class U, class V>
+  bool CheckGT(const char* file, int line, const char* error,
+               const U& lhs, const V& rhs) {
+    return Check(lhs > rhs, file, line, error, lhs, rhs);
+  }
+  template <class U, class V>
+  bool CheckLT(const char* file, int line, const char* error,
+               const U& lhs, const V& rhs) {
+    return Check(lhs < rhs, file, line, error, lhs, rhs);
+  }
+  template <class U, class V>
+  bool CheckGE(const char* file, int line, const char* error,
+               const U& lhs, const V& rhs) {
+    return Check(lhs >= rhs, file, line, error, lhs, rhs);
+  }
+  template <class U, class V>
+  bool CheckLE(const char* file, int line, const char* error,
+               const U& lhs, const V& rhs) {
+    return Check(lhs <= rhs, file, line, error, lhs, rhs);
+  }
+  template <class U>
+  bool CheckTrue(const char* file, int line, const char* error, const U& lhs) {
+    return Check(static_cast<bool>(lhs), file, line, error, lhs, "n/a");
+  }
+  template <class U>
+  bool CheckFalse(const char* file, int line, const char* error, const U& lhs) {
+    return Check(!static_cast<bool>(lhs), file, line, error, lhs, "n/a");
+  }
 };
 }
 
@@ -63,21 +115,21 @@ extern testing::Test* g_current_test;
 #define TEST(x, y) TEST_F_(testing::Test, x##y, #x "." #y)
 
 #define EXPECT_EQ(a, b) \
-  g_current_test->Check(a == b, __FILE__, __LINE__, #a " == " #b)
+  g_current_test->CheckEQ(__FILE__, __LINE__, #a " == " #b, a, b)
 #define EXPECT_NE(a, b) \
-  g_current_test->Check(a != b, __FILE__, __LINE__, #a " != " #b)
+  g_current_test->CheckNE(__FILE__, __LINE__, #a " != " #b, a, b)
 #define EXPECT_GT(a, b) \
-  g_current_test->Check(a > b, __FILE__, __LINE__, #a " > " #b)
+  g_current_test->CheckGT(__FILE__, __LINE__, #a " > " #b, a, b)
 #define EXPECT_LT(a, b) \
-  g_current_test->Check(a < b, __FILE__, __LINE__, #a " < " #b)
+  g_current_test->CheckLT(__FILE__, __LINE__, #a " < " #b, a, b)
 #define EXPECT_GE(a, b) \
-  g_current_test->Check(a >= b, __FILE__, __LINE__, #a " >= " #b)
+  g_current_test->CheckGE(__FILE__, __LINE__, #a " >= " #b, a, b)
 #define EXPECT_LE(a, b) \
-  g_current_test->Check(a <= b, __FILE__, __LINE__, #a " <= " #b)
+  g_current_test->CheckLE(__FILE__, __LINE__, #a " <= " #b, a, b)
 #define EXPECT_TRUE(a) \
-  g_current_test->Check(static_cast<bool>(a), __FILE__, __LINE__, #a)
+  g_current_test->CheckTrue(__FILE__, __LINE__, #a, a)
 #define EXPECT_FALSE(a) \
-  g_current_test->Check(!static_cast<bool>(a), __FILE__, __LINE__, #a)
+  g_current_test->CheckFalse(__FILE__, __LINE__, #a, a)
 
 #define ASSERT_EQ(a, b) \
   if (!EXPECT_EQ(a, b)) { g_current_test->AddAssertionFailure(); return; }

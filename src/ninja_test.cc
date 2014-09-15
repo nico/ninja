@@ -39,14 +39,11 @@ string StringPrintf(const char* format, ...) {
   return buf;
 }
 
-bool testing::Test::Check(bool condition, const char* file, int line,
-                          const char* error) {
-  if (!condition) {
-    printer.PrintOnNewLine(
-        StringPrintf("*** Failure in %s:%d\n%s\n", file, line, error));
-    failed_ = true;
-  }
-  return condition;
+void testing::Test::CheckFailed(const char* file, int line,
+                                const string& error) {
+  printer.PrintOnNewLine(
+      StringPrintf("*** Failure in %s:%d\n%s\n", file, line, error.c_str()));
+  failed_ = true;
 }
 
 int main(int argc, char **argv) {

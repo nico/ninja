@@ -446,7 +446,8 @@ TEST_F(DepsLogTest, TruncatedRecovery) {
     err.clear();
 
     // The truncated entry should've been discarded.
-    EXPECT_EQ(NULL, log.GetDeps(state.GetNode("out2.o")));
+    EXPECT_EQ(static_cast<DepsLog::Deps*>(NULL),
+              log.GetDeps(state.GetNode("out2.o")));
 
     EXPECT_TRUE(log.OpenForWrite(kTestFilename, &err));
     ASSERT_EQ("", err);
