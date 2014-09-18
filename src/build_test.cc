@@ -202,7 +202,7 @@ TEST_F(PlanTest, DependencyCycle) {
 }
 
 void PlanTest::TestPoolWithDepthOne(const char* test_case) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_, test_case));
+  ASSERT_TRUE(AssertParse(&state_, test_case));
   GetNode("out1")->MarkDirty();
   GetNode("out2")->MarkDirty();
   string err;
@@ -257,7 +257,7 @@ TEST_F(PlanTest, ConsolePool) {
 }
 
 TEST_F(PlanTest, PoolsWithDepthTwo) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "pool foobar\n"
 "  depth = 2\n"
 "pool bazbin\n"
@@ -335,7 +335,7 @@ TEST_F(PlanTest, PoolsWithDepthTwo) {
 }
 
 TEST_F(PlanTest, PoolWithRedundantEdges) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
     "pool compile\n"
     "  depth = 1\n"
     "rule gen_foo\n"
@@ -481,7 +481,7 @@ struct BuildTest : public StateTestWithBuiltinRules, public BuildLogUser {
 void BuildTest::RebuildTarget(const string& target, const char* manifest,
                               const char* log_path, const char* deps_path) {
   State state;
-  ASSERT_NO_FATAL_FAILURE(AddCatRule(&state));
+  ASSERT_TRUE(AddCatRule(&state));
   AssertParse(&state, manifest);
 
   string err;
@@ -661,7 +661,7 @@ TEST_F(BuildTest, TwoStep) {
 }
 
 TEST_F(BuildTest, TwoOutputs) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule touch\n"
 "  command = touch $out\n"
 "build out1 out2: touch in.txt\n"));
@@ -680,7 +680,7 @@ TEST_F(BuildTest, TwoOutputs) {
 // Test case from
 //   https://github.com/martine/ninja/issues/148
 TEST_F(BuildTest, MultiOutIn) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule touch\n"
 "  command = touch $out\n"
 "build in1 otherfile: touch in\n"
@@ -698,7 +698,7 @@ TEST_F(BuildTest, MultiOutIn) {
 }
 
 TEST_F(BuildTest, Chain) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "build c2: cat c1\n"
 "build c3: cat c2\n"
 "build c4: cat c3\n"
@@ -753,11 +753,11 @@ TEST_F(BuildTest, MakeDirs) {
   string err;
 
 #ifdef _WIN32
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
                                       "build subdir\\dir2\\file: cat in1\n"));
   EXPECT_TRUE(builder_.AddTarget("subdir\\dir2\\file", &err));
 #else
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
                                       "build subdir/dir2/file: cat in1\n"));
   EXPECT_TRUE(builder_.AddTarget("subdir/dir2/file", &err));
 #endif
@@ -776,7 +776,7 @@ TEST_F(BuildTest, MakeDirs) {
 
 TEST_F(BuildTest, DepFileMissing) {
   string err;
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule cc\n  command = cc $in\n  depfile = $out.d\n"
 "build fo$ o.o: cc foo.c\n"));
   fs_.Create("foo.c", "");
@@ -790,7 +790,7 @@ TEST_F(BuildTest, DepFileMissing) {
 TEST_F(BuildTest, DepFileOK) {
   string err;
   int orig_edges = state_.edges_.size();
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule cc\n  command = cc $in\n  depfile = $out.d\n"
 "build foo.o: cc foo.c\n"));
   Edge* edge = state_.edges_.back();
@@ -815,7 +815,7 @@ TEST_F(BuildTest, DepFileOK) {
 
 TEST_F(BuildTest, DepFileParseError) {
   string err;
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule cc\n  command = cc $in\n  depfile = $out.d\n"
 "build foo.o: cc foo.c\n"));
   fs_.Create("foo.c", "");
@@ -827,7 +827,7 @@ TEST_F(BuildTest, DepFileParseError) {
 
 TEST_F(BuildTest, OrderOnlyDeps) {
   string err;
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule cc\n  command = cc $in\n  depfile = $out.d\n"
 "build foo.o: cc foo.c || otherfile\n"));
   Edge* edge = state_.edges_.back();
@@ -897,7 +897,7 @@ TEST_F(BuildTest, OrderOnlyDeps) {
 
 TEST_F(BuildTest, RebuildOrderOnlyDeps) {
   string err;
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule cc\n  command = cc $in\n"
 "rule true\n  command = true\n"
 "build oo.h: cc oo.h.in\n"
@@ -944,7 +944,7 @@ TEST_F(BuildTest, RebuildOrderOnlyDeps) {
 
 TEST_F(BuildTest, Phony) {
   string err;
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "build out: cat bar.cc\n"
 "build all: phony out\n"));
   fs_.Create("bar.cc", "");
@@ -961,7 +961,7 @@ TEST_F(BuildTest, Phony) {
 
 TEST_F(BuildTest, PhonyNoWork) {
   string err;
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "build out: cat bar.cc\n"
 "build all: phony out\n"));
   fs_.Create("bar.cc", "");
@@ -973,7 +973,7 @@ TEST_F(BuildTest, PhonyNoWork) {
 }
 
 TEST_F(BuildTest, Fail) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule fail\n"
 "  command = fail\n"
 "build out1: fail\n"));
@@ -988,7 +988,7 @@ TEST_F(BuildTest, Fail) {
 }
 
 TEST_F(BuildTest, SwallowFailures) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule fail\n"
 "  command = fail\n"
 "build out1: fail\n"
@@ -1009,7 +1009,7 @@ TEST_F(BuildTest, SwallowFailures) {
 }
 
 TEST_F(BuildTest, SwallowFailuresLimit) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule fail\n"
 "  command = fail\n"
 "build out1: fail\n"
@@ -1038,7 +1038,7 @@ struct BuildWithLogTest : public BuildTest {
 };
 
 TEST_F(BuildWithLogTest, NotInLogButOnDisk) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule cc\n"
 "  command = cc\n"
 "build out1: cc in\n"));
@@ -1063,7 +1063,7 @@ TEST_F(BuildWithLogTest, NotInLogButOnDisk) {
 }
 
 TEST_F(BuildWithLogTest, RestatTest) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule true\n"
 "  command = true\n"
 "  restat = 1\n"
@@ -1131,7 +1131,7 @@ TEST_F(BuildWithLogTest, RestatMissingFile) {
   // exist before the rule was run, consider that behavior equivalent
   // to a rule that doesn't modify its existent output file.
 
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule true\n"
 "  command = true\n"
 "  restat = 1\n"
@@ -1168,7 +1168,7 @@ TEST_F(BuildWithLogTest, RestatMissingFile) {
 }
 
 TEST_F(BuildWithLogTest, RestatSingleDependentOutputDirty) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
     "rule true\n"
     "  command = true\n"
     "  restat = 1\n"
@@ -1210,7 +1210,7 @@ TEST_F(BuildWithLogTest, RestatSingleDependentOutputDirty) {
 // Test scenario, in which an input file is removed, but output isn't changed
 // https://github.com/martine/ninja/issues/295
 TEST_F(BuildWithLogTest, RestatMissingInput) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
     "rule true\n"
     "  command = true\n"
     "  depfile = $out.d\n"
@@ -1268,7 +1268,7 @@ struct BuildDryRun : public BuildWithLogTest {
 };
 
 TEST_F(BuildDryRun, AllCommandsShown) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule true\n"
 "  command = true\n"
 "  restat = 1\n"
@@ -1300,7 +1300,7 @@ TEST_F(BuildDryRun, AllCommandsShown) {
 // successful execution.
 TEST_F(BuildTest, RspFileSuccess)
 {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
     "rule cat_rsp\n"
     "  command = cat $rspfile > $out\n"
     "  rspfile = $rspfile\n"
@@ -1351,7 +1351,7 @@ TEST_F(BuildTest, RspFileSuccess)
 
 // Test that RSP file is created but not removed for commands, which fail
 TEST_F(BuildTest, RspFileFailure) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
     "rule fail\n"
     "  command = fail\n"
     "  rspfile = $rspfile\n"
@@ -1390,7 +1390,7 @@ TEST_F(BuildTest, RspFileFailure) {
 // Test that contens of the RSP file behaves like a regular part of
 // command line, i.e. triggers a rebuild if changed
 TEST_F(BuildWithLogTest, RspFileCmdLineChange) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
     "rule cat_rsp\n"
     "  command = cat $rspfile > $out\n"
     "  rspfile = $rspfile\n"
@@ -1422,7 +1422,7 @@ TEST_F(BuildWithLogTest, RspFileCmdLineChange) {
   // (to simulate a change in the command line between 2 builds)
   BuildLog::LogEntry* log_entry = build_log_.LookupByOutput("out");
   ASSERT_TRUE(NULL != log_entry);
-  ASSERT_NO_FATAL_FAILURE(AssertHash(
+  ASSERT_TRUE(AssertHash(
         "cat out.rsp > out;rspfile=Original very long command",
         log_entry->command_hash));
   log_entry->command_hash++;  // Change the command hash to something else.
@@ -1436,7 +1436,7 @@ TEST_F(BuildWithLogTest, RspFileCmdLineChange) {
 }
 
 TEST_F(BuildTest, InterruptCleanup) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule interrupt\n"
 "  command = interrupt\n"
 "rule touch-interrupt\n"
@@ -1470,7 +1470,7 @@ TEST_F(BuildTest, InterruptCleanup) {
 }
 
 TEST_F(BuildTest, PhonyWithNoInputs) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "build nonexistent: phony\n"
 "build out1: cat || nonexistent\n"
 "build out2: cat nonexistent\n"));
@@ -1496,7 +1496,7 @@ TEST_F(BuildTest, PhonyWithNoInputs) {
 }
 
 TEST_F(BuildTest, DepsGccWithEmptyDepfileErrorsOut) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule cc\n"
 "  command = cc\n"
 "  deps = gcc\n"
@@ -1519,7 +1519,7 @@ TEST_F(BuildTest, StatusFormatReplacePlaceholder) {
 }
 
 TEST_F(BuildTest, FailedDepsParse) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "build bad_deps.o: cat in1\n"
 "  deps = gcc\n"
 "  depfile = in1.d\n"));
@@ -1569,8 +1569,8 @@ TEST_F(BuildWithDepsLogTest, Straightforward) {
       "  depfile = in1.d\n";
   {
     State state;
-    ASSERT_NO_FATAL_FAILURE(AddCatRule(&state));
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+    ASSERT_TRUE(AddCatRule(&state));
+    ASSERT_TRUE(AssertParse(&state, manifest));
 
     // Run the build once, everything should be ok.
     DepsLog deps_log;
@@ -1595,8 +1595,8 @@ TEST_F(BuildWithDepsLogTest, Straightforward) {
 
   {
     State state;
-    ASSERT_NO_FATAL_FAILURE(AddCatRule(&state));
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+    ASSERT_TRUE(AddCatRule(&state));
+    ASSERT_TRUE(AssertParse(&state, manifest));
 
     // Touch the file only mentioned in the deps.
     fs_.Tick();
@@ -1640,8 +1640,8 @@ TEST_F(BuildWithDepsLogTest, ObsoleteDeps) {
     fs_.Create("in1.d", "out: ");
 
     State state;
-    ASSERT_NO_FATAL_FAILURE(AddCatRule(&state));
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+    ASSERT_TRUE(AddCatRule(&state));
+    ASSERT_TRUE(AssertParse(&state, manifest));
 
     // Run the build once, everything should be ok.
     DepsLog deps_log;
@@ -1670,8 +1670,8 @@ TEST_F(BuildWithDepsLogTest, ObsoleteDeps) {
 
   {
     State state;
-    ASSERT_NO_FATAL_FAILURE(AddCatRule(&state));
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+    ASSERT_TRUE(AddCatRule(&state));
+    ASSERT_TRUE(AssertParse(&state, manifest));
 
     DepsLog deps_log;
     ASSERT_TRUE(deps_log.Load("ninja_deps", &state, &err));
@@ -1708,8 +1708,8 @@ TEST_F(BuildWithDepsLogTest, DepsIgnoredInDryRun) {
   fs_.Create("in1", "");
 
   State state;
-  ASSERT_NO_FATAL_FAILURE(AddCatRule(&state));
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+  ASSERT_TRUE(AddCatRule(&state));
+  ASSERT_TRUE(AssertParse(&state, manifest));
 
   // The deps log is NULL in dry runs.
   config_.dry_run = true;
@@ -1728,7 +1728,7 @@ TEST_F(BuildWithDepsLogTest, DepsIgnoredInDryRun) {
 
 /// Check that a restat rule generating a header cancels compilations correctly.
 TEST_F(BuildTest, RestatDepfileDependency) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule true\n"
 "  command = true\n"  // Would be "write if out-of-date" in reality.
 "  restat = 1\n"
@@ -1763,8 +1763,8 @@ TEST_F(BuildWithDepsLogTest, RestatDepfileDependencyDepsLog) {
       "  depfile = in1.d\n";
   {
     State state;
-    ASSERT_NO_FATAL_FAILURE(AddCatRule(&state));
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+    ASSERT_TRUE(AddCatRule(&state));
+    ASSERT_TRUE(AssertParse(&state, manifest));
 
     // Run the build once, everything should be ok.
     DepsLog deps_log;
@@ -1785,8 +1785,8 @@ TEST_F(BuildWithDepsLogTest, RestatDepfileDependencyDepsLog) {
 
   {
     State state;
-    ASSERT_NO_FATAL_FAILURE(AddCatRule(&state));
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+    ASSERT_TRUE(AddCatRule(&state));
+    ASSERT_TRUE(AssertParse(&state, manifest));
 
     // Touch the input of the restat rule.
     fs_.Tick();
@@ -1823,7 +1823,7 @@ TEST_F(BuildWithDepsLogTest, DepFileOKDepsLog) {
 
   {
     State state;
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+    ASSERT_TRUE(AssertParse(&state, manifest));
 
     // Run the build once, everything should be ok.
     DepsLog deps_log;
@@ -1844,7 +1844,7 @@ TEST_F(BuildWithDepsLogTest, DepFileOKDepsLog) {
 
   {
     State state;
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, manifest));
+    ASSERT_TRUE(AssertParse(&state, manifest));
 
     DepsLog deps_log;
     ASSERT_TRUE(deps_log.Load("ninja_deps", &state, &err));
@@ -1951,7 +1951,7 @@ TEST_F(BuildWithDepsLogTest, RestatMissingDepfileDepslog) {
 }
 
 TEST_F(BuildTest, Console) {
-  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+  ASSERT_TRUE(AssertParse(&state_,
 "rule console\n"
 "  command = console\n"
 "  pool = console\n"

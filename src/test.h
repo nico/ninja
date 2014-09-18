@@ -28,17 +28,14 @@
 namespace testing {
 class Test {
   bool failed_;
-  int assertion_failures_;
  public:
-  Test() : failed_(false), assertion_failures_(0) {}
+  Test() : failed_(false) {}
   virtual ~Test() {}
   virtual void SetUp() {}
   virtual void TearDown() {}
   virtual void Run() = 0;
 
   bool Failed() const { return failed_; }
-  int AssertionFailures() const { return assertion_failures_; }
-  void AddAssertionFailure() { assertion_failures_++; }
   bool Check(bool condition, const char* file, int line, const char* error);
 };
 }
@@ -77,31 +74,14 @@ extern testing::Test* g_current_test;
 #define EXPECT_FALSE(a) \
   g_current_test->Check(!static_cast<bool>(a), __FILE__, __LINE__, #a)
 
-#define ASSERT_EQ(a, b) \
-  if (!EXPECT_EQ(a, b)) { g_current_test->AddAssertionFailure(); return; }
-#define ASSERT_NE(a, b) \
-  if (!EXPECT_NE(a, b)) { g_current_test->AddAssertionFailure(); return; }
-#define ASSERT_GT(a, b) \
-  if (!EXPECT_GT(a, b)) { g_current_test->AddAssertionFailure(); return; }
-#define ASSERT_LT(a, b) \
-  if (!EXPECT_LT(a, b)) { g_current_test->AddAssertionFailure(); return; }
-#define ASSERT_GE(a, b) \
-  if (!EXPECT_GE(a, b)) { g_current_test->AddAssertionFailure(); return; }
-#define ASSERT_LE(a, b) \
-  if (!EXPECT_LE(a, b)) { g_current_test->AddAssertionFailure(); return; }
-#define ASSERT_TRUE(a)  \
-  if (!EXPECT_TRUE(a))  { g_current_test->AddAssertionFailure(); return; }
-#define ASSERT_FALSE(a) \
-  if (!EXPECT_FALSE(a)) { g_current_test->AddAssertionFailure(); return; }
-#define ASSERT_NO_FATAL_FAILURE(a)                  \
-  {                                                 \
-    int f = g_current_test->AssertionFailures();    \
-    a;                                              \
-    if (f != g_current_test->AssertionFailures()) { \
-      g_current_test->AddAssertionFailure();        \
-      return;                                       \
-    }                                               \
-  }
+#define ASSERT_EQ(a, b) if (!EXPECT_EQ(a, b)) return
+#define ASSERT_NE(a, b) if (!EXPECT_NE(a, b)) return
+#define ASSERT_GT(a, b) if (!EXPECT_GT(a, b)) return
+#define ASSERT_LT(a, b) if (!EXPECT_LT(a, b)) return
+#define ASSERT_GE(a, b) if (!EXPECT_GE(a, b)) return
+#define ASSERT_LE(a, b) if (!EXPECT_LE(a, b)) return
+#define ASSERT_TRUE(a)  if (!EXPECT_TRUE(a))  return
+#define ASSERT_FALSE(a) if (!EXPECT_FALSE(a)) return
 
 // Support utilites for tests.
 
@@ -114,7 +94,7 @@ struct StateTestWithBuiltinRules : public testing::Test {
 
   /// Add a "cat" rule to \a state.  Used by some tests; it's
   /// otherwise done by the ctor to state_.
-  void AddCatRule(State* state);
+  bool AddCatRule(State* state);
 
   /// Short way to get a Node by its path from state_.
   Node* GetNode(const string& path);
@@ -122,8 +102,9 @@ struct StateTestWithBuiltinRules : public testing::Test {
   State state_;
 };
 
-void AssertParse(State* state, const char* input);
-void AssertHash(const char* expected, uint64_t actual);
+struct FileReader;
+bool AssertParse(State* state, const char* input, FileReader* reader = NULL);
+bool AssertHash(const char* expected, uint64_t actual);
 
 /// An implementation of DiskInterface that uses an in-memory representation
 /// of disk state.  It also logs file accesses and directory creations

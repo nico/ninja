@@ -179,7 +179,7 @@ TEST_F(DepsLogTest, Recompact) {
   int file_size;
   {
     State state;
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, kManifest));
+    ASSERT_TRUE(AssertParse(&state, kManifest));
     DepsLog log;
     string err;
     ASSERT_TRUE(log.OpenForWrite(kTestFilename, &err));
@@ -207,7 +207,7 @@ TEST_F(DepsLogTest, Recompact) {
   int file_size_2;
   {
     State state;
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, kManifest));
+    ASSERT_TRUE(AssertParse(&state, kManifest));
     DepsLog log;
     string err;
     ASSERT_TRUE(log.Load(kTestFilename, &state, &err));
@@ -232,7 +232,7 @@ TEST_F(DepsLogTest, Recompact) {
   int file_size_3;
   {
     State state;
-    ASSERT_NO_FATAL_FAILURE(AssertParse(&state, kManifest));
+    ASSERT_TRUE(AssertParse(&state, kManifest));
     DepsLog log;
     string err;
     ASSERT_TRUE(log.Load(kTestFilename, &state, &err));
