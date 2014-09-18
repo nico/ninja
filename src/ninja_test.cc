@@ -18,6 +18,10 @@
 #include "test.h"
 #include "line_printer.h"
 
+// This can't be a vector because tests call RegisterTest from static
+// initializers and the order static initializers run it isn't specified. So
+// the vector constructor isn't guaranteed to run before all of the
+// RegisterTest() calls.
 static testing::Test* (*tests[10000])();
 testing::Test* g_current_test;
 static int ntests;
