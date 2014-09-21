@@ -66,6 +66,8 @@ struct Plan {
   /// Number of edges with commands to run.
   int command_edge_count() const { return command_edges_; }
 
+  void ComputePriorityList(BuildLog* build_log);
+
 private:
   bool AddSubTarget(Node* node, vector<Node*>* stack, string* err);
   bool CheckDependencyCycle(Node* node, vector<Node*>* stack, string* err);
@@ -89,6 +91,10 @@ private:
   map<Edge*, bool> want_;
 
   set<Edge*> ready_;
+
+  set<Node*> targets_;
+  vector<Edge*> priority_list_;
+  int priority_list_index_;
 
   /// Total number of edges that have commands (not phony).
   int command_edges_;

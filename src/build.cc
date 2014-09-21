@@ -258,9 +258,10 @@ void BuildStatus::PrintStatus(Edge* edge) {
                  force_full_command ? LinePrinter::FULL : LinePrinter::ELIDE);
 }
 
-Plan::Plan() : command_edges_(0), wanted_edges_(0) {}
+Plan::Plan() : priority_list_index_(0), command_edges_(0), wanted_edges_(0) {}
 
 bool Plan::AddTarget(Node* node, string* err) {
+  targets_.insert(node);
   vector<Node*> stack;
   return AddSubTarget(node, &stack, err);
 }
@@ -339,7 +340,17 @@ bool Plan::CheckDependencyCycle(Node* node, vector<Node*>* stack, string* err) {
 Edge* Plan::FindWork() {
   if (ready_.empty())
     return NULL;
-  set<Edge*>::iterator i = ready_.begin();
+  set<Edge*>::iterator i;
+  // XXX: this is o(n^2), have some low watermark or something
+  for (vector<Edge*>::iterator it = priority_list_.begin(),
+                               end = priority_list_.end();
+       it != end; ++it) {
+    i = ready_.find(*it);
+    if (i != ready_.end())
+      break;
+  }
+  if (i == ready_.end())
+    return NULL;  // Shouldn't happen.
   Edge* edge = *i;
   ready_.erase(i);
   return edge;
@@ -449,6 +460,99 @@ void Plan::CleanNode(DependencyScan* scan, Node* node) {
       }
     }
   }
+}
+
+namespace {
+bool EdgeCom(const Edge* lhs, const Edge* rhs) {
+  // Note: > to sort in decreasing order.
+  return lhs->inputs_[0]->critical_time() > rhs->inputs_[0]->critical_time();
+}
+}  // namespace
+
+void Plan::ComputePriorityList(BuildLog* build_log) {
+  // XXX: doesn't work yet if the plan contains nodes with several output edges
+
+  vector<Edge*> edges;
+  for (map<Edge*, bool>::iterator it = want_.begin(), end = want_.end();
+       it != end; ++it) {
+    if (it->second)
+      edges.push_back(it->first);
+  }
+  // Critical path scheduling.
+  // 0. Assign costs to all edges, using:
+  // a) The time the edge needed last time, if available.
+  // b) The average time this edge type needed, if this edge hasn't run before.
+  // c) A fixed cost if this type of edge hasn't run before.
+  for (vector<Edge*>::iterator it = edges.begin(), end = edges.end(); it != end;
+       ++it) {
+    Edge* edge = *it;
+    if (edge->outputs_.size() < 1)
+      continue;  // XXX: possible? phony?
+    BuildLog::LogEntry* entry =
+        build_log->LookupByOutput(edge->outputs_[0]->path());
+    if (!entry)
+      continue;
+    int duration = entry->end_time - entry->start_time;  // XXX: + 1?
+    edge->run_time_ms_ = duration;
+    // XXX: also count on rule, and globally
+  }
+  for (vector<Edge*>::iterator it = edges.begin(), end = edges.end(); it != end;
+       ++it) {
+    Edge* edge = *it;
+    if (edge->run_time_ms_ == -1)
+      edge->run_time_ms_ = 1;  // XXX: smarter
+  }
+
+
+  // Dump graph to stdout for debugging / prototyping.
+  if (false) {
+    for (vector<Edge*>::iterator it = edges.begin(), end = edges.end();
+         it != end; ++it) {
+      Edge* edge = *it;
+      Node* input = edge->inputs_[0];
+      Node* output = edge->outputs_[0];
+      printf("%s %s %d\n", input->path().c_str(), output->path().c_str(),
+             edge->run_time_ms_);
+    }
+  }
+
+  // 1. Use backflow algorithm to compute critical times for all nodes, starting
+  // from the destination nodes.
+  // XXX: ignores pools
+  queue<Edge*> edgesQ; // XXX: this isn't quite good enough
+  for (set<Node*>::iterator it = targets_.begin(), end = targets_.end();
+       it != end; ++it) {
+    (*it)->set_critical_time(0);
+    if ((*it)->in_edge())
+      edgesQ.push((*it)->in_edge());
+  }
+  while (!edgesQ.empty()) {
+    Edge* e = edgesQ.front(); edgesQ.pop();
+    int crit_out = e->outputs_[0]->critical_time();  // XXX not good enough
+    for (vector<Node*>::iterator it = e->inputs_.begin(),
+                                 end = e->inputs_.end();
+         it != end; ++it) {
+      (*it)->set_critical_time(crit_out + e->run_time_ms_);
+      if ((*it)->in_edge())
+        edgesQ.push((*it)->in_edge());
+    }
+  }
+
+  // 2. Build priority list in decreasing order of critical times.
+  sort(edges.begin(), edges.end(), EdgeCom);
+  if (true) {
+    printf("priority list: \n");
+    for (vector<Edge*>::iterator it = edges.begin(), end = edges.end();
+         it != end; ++it) {
+      Edge* edge = *it;
+      Node* input = edge->inputs_[0];
+      Node* output = edge->outputs_[0];
+      printf("%s %s crit %d edge %d\n", input->path().c_str(),
+             output->path().c_str(), input->critical_time(),
+             edge->run_time_ms_);
+    }
+  }
+  priority_list_.swap(edges);
 }
 
 void Plan::Dump() {
@@ -594,6 +698,8 @@ bool Builder::AlreadyUpToDate() const {
 
 bool Builder::Build(string* err) {
   assert(!AlreadyUpToDate());
+
+  plan_.ComputePriorityList(scan_.build_log());
 
   status_->PlanHasTotalEdges(plan_.command_edge_count());
   int pending_commands = 0;
@@ -793,6 +899,11 @@ bool Builder::FinishCommand(CommandRunner::Result* result, string* err) {
     disk_interface_->RemoveFile(rspfile);
 
   if (scan_.build_log()) {
+// XXX debug output: check if past run times predict future runtimes reasonably
+// well.
+//int actual = end_time - start_time;
+//printf("actual %d expected %d\n", actual, edge->run_time_ms_);
+
     if (!scan_.build_log()->RecordCommand(edge, start_time, end_time,
                                           restat_mtime)) {
       *err = string("Error writing to build log: ") + strerror(errno);
