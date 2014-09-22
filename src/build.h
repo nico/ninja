@@ -16,6 +16,7 @@
 #define NINJA_BUILD_H_
 
 #include <cstdio>
+#include <list>
 #include <map>
 #include <memory>
 #include <queue>
@@ -93,8 +94,7 @@ private:
   set<Edge*> ready_;
 
   set<Node*> targets_;
-  vector<Edge*> priority_list_;
-  int priority_list_index_;
+  list<Edge*> priority_list_;
 
   /// Total number of edges that have commands (not phony).
   int command_edges_;
