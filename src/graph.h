@@ -38,8 +38,7 @@ struct Node {
         mtime_(-1),
         dirty_(false),
         in_edge_(NULL),
-        id_(-1),
-        critical_time_(-1) {}
+        id_(-1) {}
 
   /// Return true if the file exists (mtime_ got a value).
   bool Stat(DiskInterface* disk_interface);
@@ -78,9 +77,6 @@ struct Node {
   int id() const { return id_; }
   void set_id(int id) { id_ = id; }
 
-  int critical_time() const { return critical_time_; }
-  void set_critical_time(int critical_time) { critical_time_ = critical_time; }
-
   const vector<Edge*>& out_edges() const { return out_edges_; }
   void AddOutEdge(Edge* edge) { out_edges_.push_back(edge); }
 
@@ -108,8 +104,6 @@ private:
 
   /// A dense integer id for the node, assigned and used by DepsLog.
   int id_;
-
-  int critical_time_;
 };
 
 /// An invokable build command and associated metadata (description, etc.).
@@ -135,8 +129,9 @@ struct Rule {
 
 /// An edge in the dependency graph; links between Nodes using Rules.
 struct Edge {
-  Edge() : rule_(NULL), env_(NULL), run_time_ms_(0), outputs_ready_(false),
-           deps_missing_(false), implicit_deps_(0), order_only_deps_(0) {}
+  Edge() : rule_(NULL), env_(NULL), run_time_ms_(0), critical_time_(-1),
+           outputs_ready_(false), deps_missing_(false), implicit_deps_(0),
+           order_only_deps_(0) {}
 
   /// Return true if all inputs' in-edges are ready.
   bool AllInputsReady() const;
@@ -157,12 +152,16 @@ struct Edge {
 
   void Dump(const char* prefix="") const;
 
+  int critical_time() const { return critical_time_; }
+  void set_critical_time(int critical_time) { critical_time_ = critical_time; }
+
   const Rule* rule_;
   Pool* pool_;
   vector<Node*> inputs_;
   vector<Node*> outputs_;
   BindingEnv* env_;
   int run_time_ms_;
+  int critical_time_;
   bool outputs_ready_;
   bool deps_missing_;
 
