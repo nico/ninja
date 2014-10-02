@@ -301,6 +301,8 @@ else:
     objs += cxx('subprocess-posix')
 if platform.is_linux():
     objs += cxx('watcher-linux')
+if platform.is_mac():
+    objs += cxx('watcher-mac')
 if platform.is_msvc():
     ninja_lib = n.build(built('ninja.lib'), 'ar', objs)
 else:

@@ -92,6 +92,28 @@ class NativeWatcher : public Watcher {
   void WaitForEvents();
 };
 
+#elif defined(__APPLE__)
+
+#define HAS_NATIVE_WATCHER 1
+
+class NativeWatcher : public Watcher {
+  //FSEventStreamRef fsevent_stream_;
+ public:
+  int fd_;
+  NativeWatcher();
+  ~NativeWatcher() {}
+
+  void AddPath(std::string path, void* key);
+  void OnReady() {
+    assert(0 && "not implemented");
+  }
+  timespec* Timeout() {
+    assert(0 && "not implemented");
+    return 0;
+  }
+  virtual void WaitForEvents();
+};
+
 #elif !defined(_WIN32)
 
 class NativeWatcher : public Watcher {

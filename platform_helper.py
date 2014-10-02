@@ -52,6 +52,9 @@ class Platform(object):
     def is_linux(self):
         return self._platform == 'linux'
 
+    def is_mac(self):
+        return self._platform == 'darwin'
+
     def is_mingw(self):
         return self._platform == 'mingw'
 
