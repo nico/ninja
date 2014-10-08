@@ -13,29 +13,37 @@
 // limitations under the License.
 
 #include "watcher.h"
+#include "util.h"
+
 #include <iostream>
 
 int main(int argc, char **argv) {
+  string path, err;
   NativeWatcher w;
   for (int i = 1; i != argc; ++i) {
-    w.AddPath(argv[i], argv[i]);
+    path = argv[i];
+    if (!CanonicalizePath(&path, &err)) {
+      cerr << err << endl;
+      return 1;
+    }
+    w.AddPath(path, argv[i]);
   }
 
   while (1) {
     w.WaitForEvents();
     for (WatchResult::key_set_type::iterator i = w.result_.added_keys_.begin();
          i != w.result_.added_keys_.end(); ++i) {
-      std::cout << "added " << static_cast<char *>(*i) << std::endl;
+      cout << "added " << static_cast<char*>(*i) << endl;
     }
     for (WatchResult::key_set_type::iterator i =
              w.result_.changed_keys_.begin();
          i != w.result_.changed_keys_.end(); ++i) {
-      std::cout << "changed " << static_cast<char *>(*i) << std::endl;
+      cout << "changed " << static_cast<char*>(*i) << endl;
     }
     for (WatchResult::key_set_type::iterator i =
              w.result_.deleted_keys_.begin();
          i != w.result_.deleted_keys_.end(); ++i) {
-      std::cout << "deleted " << static_cast<char *>(*i) << std::endl;
+      cout << "deleted " << static_cast<char*>(*i) << endl;
     }
     w.result_.Reset();
   }
