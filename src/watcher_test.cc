@@ -192,6 +192,8 @@ TEST_F(WatcherTest, RenameSubdir) {
   EXPECT_EQ(CharKey('b'), *watcher_->result_.added_keys_.begin());
 }
 
+// XXX: test that attrib changes are monitored
+
 #ifndef _WIN32
 TEST_F(WatcherTest, Symlinks) {
   ASSERT_TRUE(disk_.MakeDir("dir"));

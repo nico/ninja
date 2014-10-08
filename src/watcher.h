@@ -97,17 +97,38 @@ class NativeWatcher : public Watcher {
 #define HAS_NATIVE_WATCHER 1
 
 class NativeWatcher : public Watcher {
+  struct WatchedNode;
+
+  struct WatchMapEntry {
+    WatchMapEntry() {}
+    WatchMapEntry(const std::string& path, WatchedNode* node)
+        : path_(path), node_(node) {}
+    std::string path_;
+    WatchedNode* node_;
+  };
+
+  typedef std::map<int, WatchMapEntry> watch_map_type;
+  watch_map_type watch_map_;
+
+  typedef std::map<std::string, WatchedNode> subdir_map_type;
+
+  struct WatchedNode {
+    bool has_wd_;
+    watch_map_type::iterator it_;
+    void* key_;
+    subdir_map_type subdirs_;
+  };
+
+  subdir_map_type roots_;
   //FSEventStreamRef fsevent_stream_;
   timespec timeout_, last_refresh_;
  public:
-  int fd_;
   NativeWatcher();
   ~NativeWatcher();
 
+  int fd_;
   void AddPath(std::string path, void* key);
-  void OnReady() {
-    assert(0 && "not implemented");
-  }
+  void OnReady();
 
   timespec* Timeout();
   virtual void WaitForEvents();

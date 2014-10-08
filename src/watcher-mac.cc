@@ -16,6 +16,7 @@
 #include "watcher.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/event.h>
 #include <sys/time.h>
@@ -44,11 +45,6 @@ NativeWatcher::~NativeWatcher() {
 }
 
 void NativeWatcher::AddPath(std::string path, void* key) {
-}
-
-#if 0
-
-void NativeWatcher::AddPath(std::string path, void* key) {
   size_t pos = 0;
   subdir_map_type* map = &roots_;
 
@@ -61,16 +57,15 @@ void NativeWatcher::AddPath(std::string path, void* key) {
     std::string subdir = path.substr(pos, slash_offset - pos);
     WatchedNode* subdir_node = &(*map)[subdir];
 
-    int mask =
-        IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_MOVE_SELF | IN_DELETE_SELF;
     if (slash_offset == std::string::npos) {
-      mask = IN_CLOSE_WRITE | IN_MOVE_SELF | IN_DELETE_SELF;
       subdir_node->key_ = key;
     }
 
     if (!subdir_node->has_wd_ && slash_offset != 0) {
       std::string subpath = path.substr(0, slash_offset);
-      int wd = inotify_add_watch(fd_, subpath.c_str(), mask);
+      // Closed when the event is processed:
+      int wd = open(subpath.c_str(), O_EVTONLY);
+
       if (wd != -1) {
         std::pair<watch_map_type::iterator, bool> ins = watch_map_.insert(
             std::make_pair(wd, WatchMapEntry(subpath, subdir_node)));
@@ -86,6 +81,18 @@ void NativeWatcher::AddPath(std::string path, void* key) {
         } else {
           subdir_node->it_ = ins.first;
           subdir_node->has_wd_ = true;
+
+          struct kevent event;
+          EV_SET(&event, wd, EVFILT_VNODE, (EV_ADD | EV_CLEAR | EV_RECEIPT),
+                 (NOTE_DELETE | NOTE_WRITE | NOTE_ATTRIB |
+                  NOTE_RENAME | NOTE_REVOKE | NOTE_EXTEND), 0, NULL);
+          struct kevent response;
+          int count = kevent(fd_, &event, 1, &response, 1, NULL);
+          if (!count)
+            Fatal("kevent: %s for %s", strerror(errno), subpath.c_str());
+          if (response.flags & EV_ERROR && response.data)
+            Fatal("kevent: %llx for %s", (unsigned long long)response.data,
+                  subpath.c_str());
         }
       }
     }
@@ -100,61 +107,16 @@ void NativeWatcher::AddPath(std::string path, void* key) {
 }
 
 void NativeWatcher::OnReady() {
-  // We may only read full structures out of this fd, and we have no way of
-  // knowing how large they are. This makes reading this fd rather tricky.
-  char* buf;
-  size_t size = sizeof(inotify_event);
-  while (1) {
-    buf = new char[size];
-    ssize_t ret = read(fd_, buf, size);
-    if (ret != ssize_t(size)) {
-      if (errno == EINVAL) {
-        // Buffer too small. Increase by sizeof(inotify_event) to avoid reading
-        // more than one event.
-        size += sizeof(inotify_event);
-        delete[] buf;
-        continue;
-      }
-      Fatal("read: %s", strerror(errno));
-    }
-    break;
-  }
-  inotify_event* ev = reinterpret_cast<inotify_event*>(buf);
+  // XXX: get events by calling kevent, do stuff
+  // XXX: Refresh entries?
 
-  if (ev->mask & IN_IGNORED) {
-    watch_map_.erase(ev->wd);
-    delete[] buf;
-    return;
-  }
-
-  WatchMapEntry* wme = &watch_map_[ev->wd];
-  if (!wme->node_) {
-    // We've removed the watch, but we will continue to receive notifications
-    // from before we removed it, which we can safely ignore.
-    delete[] buf;
-    return;
-  }
-
-  if (ev->mask & (IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO)) {
-    subdir_map_type::iterator i = wme->node_->subdirs_.find(ev->name);
-    if (i != wme->node_->subdirs_.end()) {
-      Refresh(wme->path_ + "/" + ev->name, &i->second);
-    }
-  }
-
-  if (ev->mask & (IN_MOVE_SELF | IN_DELETE_SELF)) {
-    Refresh(wme->path_, wme->node_);
-  }
-
-  if (ev->mask & IN_CLOSE_WRITE) {
-    result_.KeyChanged(wme->node_->key_);
-  }
-
-  delete[] buf;
-
-  clock_gettime(CLOCK_MONOTONIC, &last_refresh_);
+  timeval tv;
+  if (gettimeofday(&tv, NULL) < 0)  // XXX: query monotonic timer?
+    Fatal("gettimeofday: %s", strerror(errno));
+  TIMEVAL_TO_TIMESPEC(&tv, &last_refresh_);
 }
 
+#if 0
 void NativeWatcher::Refresh(const std::string& path, WatchedNode* node) {
   bool had_wd = node->has_wd_;
   if (had_wd) {
