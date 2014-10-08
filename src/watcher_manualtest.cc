@@ -33,17 +33,17 @@ int main(int argc, char **argv) {
     w.WaitForEvents();
     for (WatchResult::key_set_type::iterator i = w.result_.added_keys_.begin();
          i != w.result_.added_keys_.end(); ++i) {
-      cout << "added " << static_cast<char*>(*i) << endl;
+      cout << "added " << (*i ? static_cast<char*>(*i) : "(null)") << endl;
     }
     for (WatchResult::key_set_type::iterator i =
              w.result_.changed_keys_.begin();
          i != w.result_.changed_keys_.end(); ++i) {
-      cout << "changed " << static_cast<char*>(*i) << endl;
+      cout << "changed " << (*i ? static_cast<char*>(*i) : "(null)") << endl;
     }
     for (WatchResult::key_set_type::iterator i =
              w.result_.deleted_keys_.begin();
          i != w.result_.deleted_keys_.end(); ++i) {
-      cout << "deleted " << static_cast<char*>(*i) << endl;
+      cout << "deleted " << (*i ? static_cast<char*>(*i) : "(null)") << endl;
     }
     w.result_.Reset();
   }

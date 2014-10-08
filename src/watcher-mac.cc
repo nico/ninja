@@ -19,14 +19,13 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/event.h>
+#include <sys/param.h>
+#include <sys/select.h>
 #include <sys/time.h>
 #include <unistd.h>
 
 #include "util.h"
 
-//#include <string.h>
-//#include <sys/inotify.h>
-//#include <sys/select.h>
 
 NativeWatcher::NativeWatcher() {
   // Use kqueue to implement file watching on OS X. kqueue does not support
@@ -44,7 +43,7 @@ NativeWatcher::~NativeWatcher() {
   close(fd_);
 }
 
-void NativeWatcher::AddPath(std::string path, void* key) {
+void NativeWatcher::AddPath(string path, void* key) {
   size_t pos = 0;
   subdir_map_type* map = &roots_;
 
@@ -54,26 +53,27 @@ void NativeWatcher::AddPath(std::string path, void* key) {
 
   while (1) {
     size_t slash_offset = path.find('/', pos);
-    std::string subdir = path.substr(pos, slash_offset - pos);
+    string subdir = path.substr(pos, slash_offset - pos);
     WatchedNode* subdir_node = &(*map)[subdir];
 
-    if (slash_offset == std::string::npos) {
+    if (slash_offset == string::npos) {
       subdir_node->key_ = key;
     }
 
+    // XXX: if all leaf files exist, there's no need to watch directory nodes.
     if (!subdir_node->has_wd_ && slash_offset != 0) {
-      std::string subpath = path.substr(0, slash_offset);
+      string subpath = path.substr(0, slash_offset);
       // Closed when the event is processed:
       int wd = open(subpath.c_str(), O_EVTONLY);
 
       if (wd != -1) {
-        std::pair<watch_map_type::iterator, bool> ins = watch_map_.insert(
-            std::make_pair(wd, WatchMapEntry(subpath, subdir_node)));
+        pair<watch_map_type::iterator, bool> ins = watch_map_.insert(
+            make_pair(wd, WatchMapEntry(subpath, subdir_node)));
         if (!ins.second) {
           // We are already watching this node through another path, e.g. via a
           // symlink. Rewrite path to use the existing path as a prefix.
           map->erase(subdir);
-          if (slash_offset != std::string::npos) {
+          if (slash_offset != string::npos) {
             path = ins.first->second.path_ + path.substr(slash_offset);
             slash_offset = ins.first->second.path_.size();
           }
@@ -83,9 +83,10 @@ void NativeWatcher::AddPath(std::string path, void* key) {
           subdir_node->has_wd_ = true;
 
           struct kevent event;
-          EV_SET(&event, wd, EVFILT_VNODE, (EV_ADD | EV_CLEAR | EV_RECEIPT),
-                 (NOTE_DELETE | NOTE_WRITE | NOTE_ATTRIB |
-                  NOTE_RENAME | NOTE_REVOKE | NOTE_EXTEND), 0, NULL);
+          EV_SET(&event, wd, EVFILT_VNODE, EV_ADD | EV_CLEAR | EV_RECEIPT,
+                 NOTE_DELETE | NOTE_WRITE | NOTE_ATTRIB | NOTE_RENAME |
+                     NOTE_REVOKE | NOTE_EXTEND,
+                 0, NULL);
           struct kevent response;
           int count = kevent(fd_, &event, 1, &response, 1, NULL);
           if (!count)
@@ -97,7 +98,7 @@ void NativeWatcher::AddPath(std::string path, void* key) {
       }
     }
 
-    if (slash_offset == std::string::npos) {
+    if (slash_offset == string::npos) {
       break;
     } else {
       pos = slash_offset + 1;
@@ -107,8 +108,38 @@ void NativeWatcher::AddPath(std::string path, void* key) {
 }
 
 void NativeWatcher::OnReady() {
-  // XXX: get events by calling kevent, do stuff
-  // XXX: Refresh entries?
+  // Read only one event each time, to match the linux implementation.
+  struct timespec timeout = { 0, 0 };
+  struct kevent event;
+  int count = kevent(fd_, NULL, 0, &event, 1, &timeout);
+
+  if (!count)
+    Fatal("kevent: %s", strerror(errno));
+  if (event.flags & EV_ERROR)
+    Fatal("kevent: %llx", (unsigned long long)event.data);
+
+  WatchMapEntry* wme = &watch_map_[event.ident];
+  if (!wme->node_) {
+    // We've removed the watch, but we will continue to receive notifications
+    // from before we removed it, which we can safely ignore.
+    return;
+  }
+
+  if (event.fflags & NOTE_RENAME) {
+    char buf[MAXPATHLEN];
+    if(fcntl(event.ident, F_GETPATH, buf) == -1)
+      Fatal("fcntl: %s", strerror(errno));
+    Refresh(buf, wme->node_);
+  }
+
+  if (event.fflags & (NOTE_DELETE | NOTE_REVOKE | NOTE_ATTRIB)) {
+    Refresh(wme->path_, wme->node_);
+  }
+
+  if (event.fflags & (NOTE_WRITE | NOTE_EXTEND)) {
+    // XXX: is this also called for file / dir creation?
+    result_.KeyChanged(wme->node_->key_);
+  }
 
   timeval tv;
   if (gettimeofday(&tv, NULL) < 0)  // XXX: query monotonic timer?
@@ -116,22 +147,31 @@ void NativeWatcher::OnReady() {
   TIMEVAL_TO_TIMESPEC(&tv, &last_refresh_);
 }
 
-#if 0
-void NativeWatcher::Refresh(const std::string& path, WatchedNode* node) {
+void NativeWatcher::Refresh(const string& path, WatchedNode* node) {
   bool had_wd = node->has_wd_;
   if (had_wd) {
-    inotify_rm_watch(fd_, node->it_->first);
+    close(node->it_->first);
     node->it_->second.node_ = 0;
     node->it_ = watch_map_type::iterator();
     node->has_wd_ = false;
   }
 
-  int mask =
-      IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_MOVE_SELF | IN_DELETE_SELF;
-  if (node->key_) mask = IN_CLOSE_WRITE | IN_MOVE_SELF | IN_DELETE_SELF;
-
-  int wd = inotify_add_watch(fd_, path.c_str(), mask);
+  // Closed when the event is processed:
+  int wd = open(path.c_str(), O_EVTONLY);
   if (wd != -1) {
+    struct kevent event;
+    EV_SET(&event, wd, EVFILT_VNODE, EV_ADD | EV_CLEAR | EV_RECEIPT,
+           NOTE_DELETE | NOTE_WRITE | NOTE_ATTRIB | NOTE_RENAME | NOTE_REVOKE |
+               NOTE_EXTEND,
+           0, NULL);
+    struct kevent response;
+    int count = kevent(fd_, &event, 1, &response, 1, NULL);
+    if (!count)
+      Fatal("kevent: %s for %s", strerror(errno), path.c_str());
+    if (response.flags & EV_ERROR && response.data)
+      Fatal("kevent: %llx for %s", (unsigned long long)response.data,
+            path.c_str());
+
     watch_map_[wd] = WatchMapEntry(path, node);
     node->it_ = watch_map_.find(wd);
     node->has_wd_ = true;
@@ -153,7 +193,6 @@ void NativeWatcher::Refresh(const std::string& path, WatchedNode* node) {
     Refresh(path + "/" + i->first, &i->second);
   }
 }
-#endif
 
 // XXX: this is near-identical to the linux impl
 timespec* NativeWatcher::Timeout() {

@@ -22,13 +22,14 @@
 #include <map>
 #include <set>
 #include <string>
+using namespace std;
 
 struct WatchResult {
   void KeyAdded(void* key);
   void KeyDeleted(void* key);
   void KeyChanged(void* key);
 
-  typedef std::set<void*> key_set_type;
+  typedef set<void*> key_set_type;
   key_set_type added_keys_, changed_keys_, deleted_keys_;
 
   bool Pending() const {
@@ -41,13 +42,13 @@ struct WatchResult {
 
 class Watcher {
  public:
-  virtual void AddPath(std::string path, void* key) = 0;
+  virtual void AddPath(string path, void* key) = 0;
   virtual void WaitForEvents() = 0;
 
   WatchResult result_;
 };
 
-#ifdef __linux
+#if defined(__linux) || defined(__APPLE__)
 
 #define HAS_NATIVE_WATCHER 1
 
@@ -56,18 +57,19 @@ class NativeWatcher : public Watcher {
 
   struct WatchMapEntry {
     WatchMapEntry() {}
-    WatchMapEntry(const std::string& path, WatchedNode* node)
+    WatchMapEntry(const string& path, WatchedNode* node)
         : path_(path), node_(node) {}
-    std::string path_;
+    string path_;
     WatchedNode* node_;
   };
 
-  typedef std::map<int, WatchMapEntry> watch_map_type;
+  typedef map<int, WatchMapEntry> watch_map_type;
   watch_map_type watch_map_;
 
-  typedef std::map<std::string, WatchedNode> subdir_map_type;
+  typedef map<string, WatchedNode> subdir_map_type;
 
   struct WatchedNode {
+    WatchedNode() : has_wd_(false), key_(NULL) {}
     bool has_wd_;
     watch_map_type::iterator it_;
     void* key_;
@@ -78,60 +80,18 @@ class NativeWatcher : public Watcher {
 
   timespec timeout_, last_refresh_;
 
-  void Refresh(const std::string& path, WatchedNode* node);
+  void Refresh(const string& path, WatchedNode* node);
 
  public:
   NativeWatcher();
   ~NativeWatcher();
 
   int fd_;
-  void AddPath(std::string path, void* key);
+  void AddPath(string path, void* key);
   void OnReady();
 
   timespec* Timeout();
   void WaitForEvents();
-};
-
-#elif defined(__APPLE__)
-
-#define HAS_NATIVE_WATCHER 1
-
-class NativeWatcher : public Watcher {
-  struct WatchedNode;
-
-  struct WatchMapEntry {
-    WatchMapEntry() {}
-    WatchMapEntry(const std::string& path, WatchedNode* node)
-        : path_(path), node_(node) {}
-    std::string path_;
-    WatchedNode* node_;
-  };
-
-  typedef std::map<int, WatchMapEntry> watch_map_type;
-  watch_map_type watch_map_;
-
-  typedef std::map<std::string, WatchedNode> subdir_map_type;
-
-  struct WatchedNode {
-    bool has_wd_;
-    watch_map_type::iterator it_;
-    void* key_;
-    subdir_map_type subdirs_;
-  };
-
-  subdir_map_type roots_;
-  //FSEventStreamRef fsevent_stream_;
-  timespec timeout_, last_refresh_;
- public:
-  NativeWatcher();
-  ~NativeWatcher();
-
-  int fd_;
-  void AddPath(std::string path, void* key);
-  void OnReady();
-
-  timespec* Timeout();
-  virtual void WaitForEvents();
 };
 
 #elif !defined(_WIN32)
