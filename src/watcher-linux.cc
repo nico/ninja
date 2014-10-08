@@ -27,7 +27,7 @@ NativeWatcher::NativeWatcher() {
 
 NativeWatcher::~NativeWatcher() { close(fd_); }
 
-void NativeWatcher::AddPath(std::string path, void* key) {
+void NativeWatcher::AddPath(string path, void* key) {
   size_t pos = 0;
   subdir_map_type* map = &roots_;
 
@@ -37,27 +37,27 @@ void NativeWatcher::AddPath(std::string path, void* key) {
 
   while (1) {
     size_t slash_offset = path.find('/', pos);
-    std::string subdir = path.substr(pos, slash_offset - pos);
+    string subdir = path.substr(pos, slash_offset - pos);
     WatchedNode* subdir_node = &(*map)[subdir];
 
     int mask =
         IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_MOVE_SELF | IN_DELETE_SELF;
-    if (slash_offset == std::string::npos) {
+    if (slash_offset == string::npos) {
       mask = IN_CLOSE_WRITE | IN_MOVE_SELF | IN_DELETE_SELF;
       subdir_node->key_ = key;
     }
 
     if (!subdir_node->has_wd_ && slash_offset != 0) {
-      std::string subpath = path.substr(0, slash_offset);
+      string subpath = path.substr(0, slash_offset);
       int wd = inotify_add_watch(fd_, subpath.c_str(), mask);
       if (wd != -1) {
-        std::pair<watch_map_type::iterator, bool> ins = watch_map_.insert(
-            std::make_pair(wd, WatchMapEntry(subpath, subdir_node)));
+        pair<watch_map_type::iterator, bool> ins = watch_map_.insert(
+            make_pair(wd, WatchMapEntry(subpath, subdir_node)));
         if (!ins.second) {
           // We are already watching this node through another path, e.g. via a
           // symlink. Rewrite path to use the existing path as a prefix.
           map->erase(subdir);
-          if (slash_offset != std::string::npos) {
+          if (slash_offset != string::npos) {
             path = ins.first->second.path_ + path.substr(slash_offset);
             slash_offset = ins.first->second.path_.size();
           }
@@ -69,7 +69,7 @@ void NativeWatcher::AddPath(std::string path, void* key) {
       }
     }
 
-    if (slash_offset == std::string::npos) {
+    if (slash_offset == string::npos) {
       break;
     } else {
       pos = slash_offset + 1;
@@ -90,6 +90,8 @@ void NativeWatcher::OnReady() {
       if (errno == EINVAL) {
         // Buffer too small. Increase by sizeof(inotify_event) to avoid reading
         // more than one event.
+        // XXX: does this read fast enough? lots of fast processes might
+        // DoS this function and cause the kernel to drop change events?
         size += sizeof(inotify_event);
         delete[] buf;
         continue;
@@ -134,7 +136,7 @@ void NativeWatcher::OnReady() {
   clock_gettime(CLOCK_MONOTONIC, &last_refresh_);
 }
 
-void NativeWatcher::Refresh(const std::string& path, WatchedNode* node) {
+void NativeWatcher::Refresh(const string& path, WatchedNode* node) {
   bool had_wd = node->has_wd_;
   if (had_wd) {
     inotify_rm_watch(fd_, node->it_->first);
