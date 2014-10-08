@@ -98,19 +98,18 @@ class NativeWatcher : public Watcher {
 
 class NativeWatcher : public Watcher {
   //FSEventStreamRef fsevent_stream_;
+  timespec timeout_, last_refresh_;
  public:
   int fd_;
   NativeWatcher();
-  ~NativeWatcher() {}
+  ~NativeWatcher();
 
   void AddPath(std::string path, void* key);
   void OnReady() {
     assert(0 && "not implemented");
   }
-  timespec* Timeout() {
-    assert(0 && "not implemented");
-    return 0;
-  }
+
+  timespec* Timeout();
   virtual void WaitForEvents();
 };
 

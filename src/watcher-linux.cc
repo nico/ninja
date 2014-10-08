@@ -199,6 +199,7 @@ timespec* NativeWatcher::Timeout() {
   return &timeout_;
 }
 
+// Used by tests only, handled by the subprocess ppoll in real life.
 void NativeWatcher::WaitForEvents() {
   while (1) {
     fd_set fds;

@@ -376,7 +376,7 @@ for name in ['build_log_test',
 if platform.is_windows():
     for name in ['includes_normalize_test', 'msvc_helper_test']:
         objs += cxx(name, variables=[('cflags', '$test_cflags')])
-if platform.is_linux():
+else:
     objs += cxx('watcher_test', variables=[('cflags', '$test_cflags')])
 
 if not platform.is_windows():

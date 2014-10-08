@@ -15,26 +15,35 @@
 
 #include "watcher.h"
 
-//#include "util.h"
-//#include <errno.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
+#include <unistd.h>
+
+#include "util.h"
+
 //#include <string.h>
 //#include <sys/inotify.h>
 //#include <sys/select.h>
-//#include <unistd.h>
 
 NativeWatcher::NativeWatcher() {
-  //fd_ = inotify_init();
-  //SetCloseOnExec(fd_);
+  // Use kqueue to implement file watching on OS X. kqueue does not support
+  // watching directories, but using directories as inputs in ninja manifests
+  // doesn't work well anyway because OSs only change directory mtimes if
+  // direct children are touched.
+  // The FSEvents API allows watching directory changes, but it doesn't easily
+  // work with the pselect() call in subprocess-posix.cc.
+
+  // kqueue fds aren't inherited by children.
+  fd_ = kqueue();
 }
 
-//NativeWatcher::~NativeWatcher() {
-  //close(fd_);
-//}
+NativeWatcher::~NativeWatcher() {
+  close(fd_);
+}
 
 void NativeWatcher::AddPath(std::string path, void* key) {
-}
-
-void NativeWatcher::WaitForEvents() {
 }
 
 #if 0
@@ -182,15 +191,21 @@ void NativeWatcher::Refresh(const std::string& path, WatchedNode* node) {
     Refresh(path + "/" + i->first, &i->second);
   }
 }
+#endif
 
+// XXX: this is near-identical to the linux impl
 timespec* NativeWatcher::Timeout() {
   const long hysteresis_ns = 100000000;
 
   if (!result_.Pending())
     return 0;
 
+  timeval tv;
+  if (gettimeofday(&tv, NULL) < 0)  // XXX: query monotonic timer?
+    Fatal("gettimeofday: %s", strerror(errno));
+
   timespec now;
-  clock_gettime(CLOCK_MONOTONIC, &now);
+  TIMEVAL_TO_TIMESPEC(&tv, &now);
   if (now.tv_sec > last_refresh_.tv_sec+1) {
     timeout_.tv_sec = 0;
     timeout_.tv_nsec = 0;
@@ -211,6 +226,7 @@ timespec* NativeWatcher::Timeout() {
   return &timeout_;
 }
 
+// Used by tests only, handled by the subprocess pselect in real life.
 void NativeWatcher::WaitForEvents() {
   while (1) {
     fd_set fds;
@@ -231,5 +247,3 @@ void NativeWatcher::WaitForEvents() {
     }
   }
 }
-
-#endif
