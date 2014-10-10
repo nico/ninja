@@ -119,6 +119,9 @@ void NativeWatcher::OnReady() {
   if (ev->mask & (IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO)) {
     subdir_map_type::iterator i = wme->node_->subdirs_.find(ev->name);
     if (i != wme->node_->subdirs_.end()) {
+      // XXX: why does this monitor the new name of an IN_MOVED_TO notification?
+      // if an editor renames a file to file.bak, why do we want to keep
+      // monitoring the backup?
       Refresh(wme->path_ + "/" + ev->name, &i->second);
     }
   }

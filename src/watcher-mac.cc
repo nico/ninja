@@ -53,7 +53,7 @@ void NativeWatcher::AddPath(string path, void* key) {
 
   while (1) {
     size_t slash_offset = path.find('/', pos);
-    string subdir = path.substr(pos, slash_offset - pos);
+    string subdir = path.substr(pos, slash_offset - pos); // XXX: valid if npos?
     WatchedNode* subdir_node = &(*map)[subdir];
 
     if (slash_offset == string::npos) {
@@ -126,10 +126,17 @@ void NativeWatcher::OnReady() {
   }
 
   if (event.fflags & NOTE_RENAME) {
+    // The vnode was renamed to a different name that we may or may not care
+    // about (we care only if it's a name we want to monitor but that didn't
+    // exist yet). We definitely care about setting up a new watch at the
+    // vnode's old path.
+    // XXX: add test for caring about the old vnode.
     char buf[MAXPATHLEN];
     if(fcntl(event.ident, F_GETPATH, buf) == -1)
       Fatal("fcntl: %s", strerror(errno));
-    Refresh(buf, wme->node_);
+//fprintf(stderr, "  rename to %s\n", buf);
+    //Refresh(buf, wme->node_);
+    Refresh(wme->path_, wme->node_);
   }
 
   if (event.fflags & (NOTE_DELETE | NOTE_REVOKE | NOTE_ATTRIB)) {
@@ -137,8 +144,19 @@ void NativeWatcher::OnReady() {
   }
 
   if (event.fflags & (NOTE_WRITE | NOTE_EXTEND)) {
-    // XXX: is this also called for file / dir creation?
-    result_.KeyChanged(wme->node_->key_);
+    if (wme->node_->subdirs_.empty())  // File.
+      result_.KeyChanged(wme->node_->key_);
+    else {  // Directory.
+      // NOTE_WRITE is sent for file creation (on directory vnodes). For all
+      // subdirs that don't have a fd yet, check if one can be created now.
+      for (subdir_map_type::iterator i = wme->node_->subdirs_.begin();
+           i != wme->node_->subdirs_.end(); ++i) {
+        if (!i->second.has_wd_) {
+//fprintf(stderr, "  refreshing %s\n", i->first.c_str());
+          Refresh(wme->path_ + "/" + i->first, &i->second);
+        }
+      }
+    }
   }
 
   timeval tv;
@@ -156,8 +174,9 @@ void NativeWatcher::Refresh(const string& path, WatchedNode* node) {
     node->has_wd_ = false;
   }
 
-  // Closed when the event is processed:
+  // Closed when the event is processed, in the if above:
   int wd = open(path.c_str(), O_EVTONLY);
+//fprintf(stderr, "got %d for %s\n", wd, path.c_str());
   if (wd != -1) {
     struct kevent event;
     EV_SET(&event, wd, EVFILT_VNODE, EV_ADD | EV_CLEAR | EV_RECEIPT,
