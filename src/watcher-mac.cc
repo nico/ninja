@@ -64,7 +64,7 @@ void NativeWatcher::AddPath(string path, void* key) {
     if (!subdir_node->has_wd_ && slash_offset != 0) {
       string subpath = path.substr(0, slash_offset);
       // Closed when the event is processed:
-      int wd = open(subpath.c_str(), O_EVTONLY);
+      int wd = open(subpath.c_str(), O_CLOEXEC | O_EVTONLY);
 
       if (wd != -1) {
         pair<watch_map_type::iterator, bool> ins = watch_map_.insert(
@@ -175,7 +175,7 @@ void NativeWatcher::Refresh(const string& path, WatchedNode* node) {
   }
 
   // Closed when the event is processed, in the if above:
-  int wd = open(path.c_str(), O_EVTONLY);
+  int wd = open(path.c_str(), O_CLOEXEC | O_EVTONLY);
 //fprintf(stderr, "got %d for %s\n", wd, path.c_str());
   if (wd != -1) {
     struct kevent event;
