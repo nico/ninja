@@ -448,6 +448,14 @@ n.build('doxygen', 'doxygen', doc('doxygen.config'),
         implicit=mainpage)
 n.newline()
 
+n.comment('Run unit tests.')
+n.rule('run_ninja_tests',
+       command='./ninja_test',
+       pool='console',
+       description='Built done, running unit tests.')
+n.build('run_ninja_tests', 'run_ninja_tests', [binary('ninja_test')])
+n.newline()
+
 if not host.is_mingw():
     n.comment('Regenerate build files if build script changes.')
     n.rule('configure',
