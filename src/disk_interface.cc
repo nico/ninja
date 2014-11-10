@@ -27,6 +27,12 @@
 #include <direct.h>  // _mkdir
 #endif
 
+#ifdef __APPLE__
+#include <fcntl.h>
+#include <sys/attr.h>
+#include <unistd.h>
+#endif
+
 #include "util.h"
 
 namespace {
@@ -129,7 +135,91 @@ bool StatAllFilesInDir(const string& dir, map<string, TimeStamp>* stamps,
   FindClose(find_handle);
   return true;
 }
+#else
+TimeStamp StatSingleFile(const string& path, bool quiet) {
+  struct stat st;
+  if (stat(path.c_str(), &st) < 0) {
+    if (errno == ENOENT || errno == ENOTDIR)
+      return 0;
+    if (!quiet) {
+      Error("stat(%s): %s", path.c_str(), strerror(errno));
+    }
+    return -1;
+  }
+  return st.st_mtime;
+}
 #endif  // _WIN32
+
+#ifdef __APPLE__
+TimeStamp TimeStampFromTimespec(const timespec& ts) {
+  return (TimeStamp)(ts.tv_sec + ts.tv_nsec/1000000000);
+}
+
+bool StatAllFilesInDir(const string& dir, map<string, TimeStamp>* stamps,
+                       bool quiet) {
+  // XXX: bench!
+  int dir_fd = open(dir.c_str(), O_RDONLY);
+//fprintf(stderr, "foo %s %d\n", dir.c_str(), dir_fd);
+  if (dir_fd < 0) {
+    if (errno == ENOENT || errno == ENOTDIR) {
+      return true;
+    }
+    if (!quiet)
+      Error("open(%s): %s", dir.c_str(), strerror(errno));
+    return false;
+  }
+
+  attrlist attr_list = { ATTR_BIT_MAP_COUNT };
+  // Ask for UTF-8 file name (<= NAME_MAX + 1), and mtime (a timespec).
+  attr_list.commonattr = ATTR_CMN_NAME | ATTR_CMN_MODTIME;
+  struct BufEntry {
+    u_int32_t length;
+    attrreference name;
+    timespec mtime;
+  } __attribute__ ((packed));
+
+  const int kCount = 256;  // ?
+  #define ALIGNED(x, n) ((x) + (n - x%n)%n)
+  const int kBufSize = kCount * (sizeof(BufEntry) +
+                                 ALIGNED(NAME_MAX + 1, sizeof(unsigned int)));
+  char attr_buf[kBufSize];
+  #undef ALIGNED
+
+  unsigned int ignored_basep;
+  unsigned int new_state;
+
+  // XXX: only if the file system supports this
+  int status = 0;
+  while (status != 1) {
+    unsigned int count = kCount;
+    status = getdirentriesattr(dir_fd, &attr_list, &attr_buf, kBufSize,
+                               &count, &ignored_basep, &new_state, 0);
+    if (status < 0) {
+      if (!quiet)
+        Error("getdirentriesattr(%s): %s", dir.c_str(), strerror(errno));
+      return false;
+    }
+
+    // XXX: do we care if new_state changes during iteration? probably not?
+    BufEntry* entry = reinterpret_cast<BufEntry*>(attr_buf);
+    for (unsigned int i = 0; i < count; ++i) {
+      string lowername(reinterpret_cast<char*>(&entry->name) +
+                       entry->name.attr_dataoffset);
+//fprintf(stderr, "foo %u %s -> %d (%ld %ld)\n", i, lowername.c_str(), TimeStampFromTimespec(entry->mtime), entry->mtime.tv_sec, entry->mtime.tv_nsec);
+      // XXX: only on case-insensitive volumes
+      transform(lowername.begin(), lowername.end(), lowername.begin(),
+                ::tolower);
+      stamps->insert(make_pair(lowername, TimeStampFromTimespec(entry->mtime)));
+
+      entry = reinterpret_cast<BufEntry*>(reinterpret_cast<char*>(entry) +
+                                          entry->length);
+    }
+  }
+
+  close(dir_fd);
+  return true;
+}
+#endif  // __APPLE__
 
 }  // namespace
 
@@ -184,17 +274,30 @@ TimeStamp RealDiskInterface::Stat(const string& path) const {
   }
   DirCache::iterator di = ci->second.find(base);
   return di != ci->second.end() ? di->second : 0;
-#else
-  struct stat st;
-  if (stat(path.c_str(), &st) < 0) {
-    if (errno == ENOENT || errno == ENOTDIR)
-      return 0;
-    if (!quiet_) {
-      Error("stat(%s): %s", path.c_str(), strerror(errno));
+#elif __APPLE__
+  if (!use_cache_)
+    return StatSingleFile(path, quiet_);
+
+  string dir = DirName(path);
+  string base(path.substr(dir.size() ? dir.size() + 1 : 0));
+
+  // XXX: only on case-insensitive volumes
+  transform(dir.begin(), dir.end(), dir.begin(), ::tolower);
+  transform(base.begin(), base.end(), base.begin(), ::tolower);
+
+  Cache::iterator ci = cache_.find(dir);
+  if (ci == cache_.end()) {
+    ci = cache_.insert(make_pair(dir, DirCache())).first;
+    if (!StatAllFilesInDir(dir.empty() ? "." : dir, &ci->second, quiet_)) {
+fprintf(stderr, "%s FAIL\n", dir.c_str());
+      cache_.erase(ci);
+      return -1;
     }
-    return -1;
   }
-  return st.st_mtime;
+  DirCache::iterator di = ci->second.find(base);
+  return di != ci->second.end() ? di->second : 0;
+#else
+  return StatSingleFile(path, quiet_);
 #endif
 }
 
@@ -258,7 +361,7 @@ int RealDiskInterface::RemoveFile(const string& path) {
 }
 
 void RealDiskInterface::AllowStatCache(bool allow) {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
   use_cache_ = allow;
   if (!use_cache_)
     cache_.clear();

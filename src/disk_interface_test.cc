@@ -88,7 +88,7 @@ TEST_F(DiskInterfaceTest, StatExistingDir) {
   EXPECT_EQ(disk_.Stat("subdir/subsubdir"), disk_.Stat("subdir/subsubdir/."));
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
 TEST_F(DiskInterfaceTest, StatCache) {
   disk_.AllowStatCache(true);
 
@@ -96,29 +96,46 @@ TEST_F(DiskInterfaceTest, StatCache) {
   ASSERT_TRUE(Touch("fiLE2"));
   ASSERT_TRUE(disk_.MakeDir("subdir"));
   ASSERT_TRUE(disk_.MakeDir("subdir/subsubdir"));
+#ifdef _WIN32
   ASSERT_TRUE(Touch("subdir\\subfile1"));
   ASSERT_TRUE(Touch("subdir\\SUBFILE2"));
   ASSERT_TRUE(Touch("subdir\\SUBFILE3"));
+#else
+  ASSERT_TRUE(Touch("subdir/subfile1"));
+  ASSERT_TRUE(Touch("subdir/SUBFILE2"));
+  ASSERT_TRUE(Touch("subdir/SUBFILE3"));
+#endif
 
   EXPECT_GT(disk_.Stat("FIle1"), 1);
   EXPECT_GT(disk_.Stat("file1"), 1);
 
   EXPECT_GT(disk_.Stat("subdir/subfile2"), 1);
+#ifdef _WIN32
   EXPECT_GT(disk_.Stat("sUbdir\\suBFile1"), 1);
+#else
+  EXPECT_GT(disk_.Stat("sUbdir/suBFile1"), 1);
+#endif
 
+#ifdef _WIN32  // XXX (should always be canon'd away anyhow?)
   EXPECT_GT(disk_.Stat("."), 1);
+#endif
   EXPECT_GT(disk_.Stat("subdir"), 1);
   EXPECT_GT(disk_.Stat("subdir/subsubdir"), 1);
 
+#ifdef _WIN32  // XXX (should always be canon'd away anyhow?)
   EXPECT_EQ(disk_.Stat("subdir"), disk_.Stat("subdir/."));
   EXPECT_EQ(disk_.Stat("subdir"), disk_.Stat("subdir/subsubdir/.."));
   EXPECT_EQ(disk_.Stat("subdir/subsubdir"), disk_.Stat("subdir/subsubdir/."));
+#endif
 
   // Test error cases.
   disk_.quiet_ = true;
+#ifdef _WIN32
+  // XXX: are there bad paths on os x?
   string bad_path("cc:\\foo");
   EXPECT_EQ(-1, disk_.Stat(bad_path));
   EXPECT_EQ(-1, disk_.Stat(bad_path));
+#endif
   EXPECT_EQ(0, disk_.Stat("nosuchfile"));
   EXPECT_EQ(0, disk_.Stat("nosuchdir/nosuchfile"));
 }

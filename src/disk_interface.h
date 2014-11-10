@@ -57,7 +57,7 @@ struct DiskInterface {
 /// Implementation of DiskInterface that actually hits the disk.
 struct RealDiskInterface : public DiskInterface {
   RealDiskInterface() : quiet_(false)
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
                       , use_cache_(false)
 #endif
                       {}
@@ -75,7 +75,7 @@ struct RealDiskInterface : public DiskInterface {
   void AllowStatCache(bool allow);
 
  private:
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__APPLE__)
   /// Whether stat information can be cached.
   bool use_cache_;
 
