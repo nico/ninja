@@ -564,17 +564,6 @@ void Builder::Cleanup() {
   }
 }
 
-Node* Builder::AddTarget(const string& name, string* err) {
-  Node* node = state_->LookupNode(name);
-  if (!node) {
-    *err = "unknown target: '" + name + "'";
-    return NULL;
-  }
-  if (!AddTarget(node, err))
-    return NULL;
-  return node;
-}
-
 bool Builder::AddTarget(Node* node, string* err) {
   node->StatIfNecessary(disk_interface_);
   if (Edge* in_edge = node->in_edge()) {

@@ -149,8 +149,6 @@ struct Builder {
   /// Clean up after interrupted commands by deleting output files.
   void Cleanup();
 
-  Node* AddTarget(const string& name, string* err);
-
   /// Add a target to the build, scanning dependencies.
   /// @return false on error.
   bool AddTarget(Node* target, string* err);
