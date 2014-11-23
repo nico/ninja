@@ -990,7 +990,7 @@ int ReadFlags(int* argc, char*** argv,
         // We want to go until N jobs fail, which means we should allow
         // N failures and then stop.  For N <= 0, INT_MAX is close enough
         // to infinite for most sane builds.
-        config->failures_allowed = value > 0 ? value : INT_MAX;
+        config->num_failures_allowed = value > 0 ? value : INT_MAX;
         break;
       }
       case 'l': {

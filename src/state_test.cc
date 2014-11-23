@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "graph.h"
 #include "state.h"
+
+#include "graph.h"
 #include "test.h"
 
 namespace {
@@ -41,6 +42,24 @@ TEST(State, Basic) {
   EXPECT_FALSE(state.GetNode("in1", 0)->dirty());
   EXPECT_FALSE(state.GetNode("in2", 0)->dirty());
   EXPECT_FALSE(state.GetNode("out", 0)->dirty());
+}
+
+struct StateTest : public StateTestWithBuiltinRules {};
+
+TEST_F(StateTest, RootNodes) {
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+"build out1: cat in1\n"
+"build mid1: cat in1\n"
+"build out2: cat mid1\n"
+"build out3 out4: cat mid1\n"));
+
+  string err;
+  vector<Node*> root_nodes = state_.RootNodes(&err);
+  EXPECT_EQ(4u, root_nodes.size());
+  for (size_t i = 0; i < root_nodes.size(); ++i) {
+    string name = root_nodes[i]->path();
+    EXPECT_EQ("out", name.substr(0, 3));
+  }
 }
 
 }  // namespace

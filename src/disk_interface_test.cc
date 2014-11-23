@@ -21,6 +21,7 @@
 
 #include "disk_interface.h"
 #include "graph.h"
+#include "scan.h"
 #include "test.h"
 
 namespace {

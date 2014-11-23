@@ -38,7 +38,8 @@ struct Rule;
 /// completes).
 struct Pool {
   explicit Pool(const string& name, int depth)
-    : name_(name), current_use_(0), depth_(depth), delayed_(&WeightedEdgeCmp) { }
+      : name_(name), current_use_(0), depth_(depth),
+        delayed_(&WeightedEdgeCmp) {}
 
   // A depth of 0 is infinite
   bool is_valid() const { return depth_ >= 0; }

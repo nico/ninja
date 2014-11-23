@@ -19,83 +19,23 @@
 #include <map>
 #include <memory>
 #include <queue>
-#include <set>
 #include <string>
 #include <vector>
 
-#include "graph.h"  // XXX needed for DependencyScan; should rearrange.
+#include "scan.h"
 #include "exit_status.h"
 #include "line_printer.h"
 #include "metrics.h"
+#include "plan.h"
 #include "util.h"  // int64_t
 
 struct BuildLog;
 struct BuildStatus;
+struct DepsLog;
 struct DiskInterface;
 struct Edge;
 struct Node;
 struct State;
-
-/// Plan stores the state of a build plan: what we intend to build,
-/// which steps we're ready to execute.
-struct Plan {
-  Plan();
-
-  /// Add a target to our plan (including all its dependencies).
-  /// Returns false if we don't need to build this target; may
-  /// fill in |err| with an error message if there's a problem.
-  bool AddTarget(Node* node, string* err);
-
-  // Pop a ready edge off the queue of edges to build.
-  // Returns NULL if there's no work to do.
-  Edge* FindWork();
-
-  /// Returns true if there's more work to be done.
-  bool more_to_do() const { return wanted_edges_ > 0 && command_edges_ > 0; }
-
-  /// Dumps the current state of the plan.
-  void Dump();
-
-  /// Mark an edge as done building.  Used internally and by
-  /// tests.
-  void EdgeFinished(Edge* edge);
-
-  /// Clean the given node during the build.
-  void CleanNode(DependencyScan* scan, Node* node);
-
-  /// Number of edges with commands to run.
-  int command_edge_count() const { return command_edges_; }
-
-private:
-  bool AddSubTarget(Node* node, vector<Node*>* stack, string* err);
-  bool CheckDependencyCycle(Node* node, vector<Node*>* stack, string* err);
-  void NodeFinished(Node* node);
-
-  /// Submits a ready edge as a candidate for execution.
-  /// The edge may be delayed from running, for example if it's a member of a
-  /// currently-full pool.
-  void ScheduleWork(Edge* edge);
-
-  /// Allows jobs blocking on |edge| to potentially resume.
-  /// For example, if |edge| is a member of a pool, calling this may schedule
-  /// previously pending jobs in that pool.
-  void ResumeDelayedJobs(Edge* edge);
-
-  /// Keep track of which edges we want to build in this plan.  If this map does
-  /// not contain an entry for an edge, we do not want to build the entry or its
-  /// dependents.  If an entry maps to false, we do not want to build it, but we
-  /// might want to build one of its dependents.  If the entry maps to true, we
-  /// want to build it.
-  map<Edge*, bool> want_;
-
-  set<Edge*> ready_;
-
-  /// Total number of edges that have commands (not phony).
-  int command_edges_;
-
-  /// Total remaining number of wanted edges.
-  int wanted_edges_;
-};
 
 /// CommandRunner is an interface that wraps running the build
 /// subcommands.  This allows tests to abstract out running commands.
@@ -123,7 +63,7 @@ struct CommandRunner {
 /// Options (e.g. verbosity, parallelism) passed to a build.
 struct BuildConfig {
   BuildConfig() : verbosity(NORMAL), dry_run(false), parallelism(1),
-                  failures_allowed(1), max_load_average(-0.0f) {}
+                  num_failures_allowed(1), max_load_average(-0.0f) {}
 
   enum Verbosity {
     NORMAL,
@@ -133,7 +73,7 @@ struct BuildConfig {
   Verbosity verbosity;
   bool dry_run;
   int parallelism;
-  int failures_allowed;
+  int num_failures_allowed;
   /// The maximum load average we must not exceed. A negative value
   /// means that we do not have any limit.
   double max_load_average;
