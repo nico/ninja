@@ -102,9 +102,9 @@ bool Plan::CheckDependencyCycle(Node* node, vector<Node*>* stack, string* err) {
 Edge* Plan::FindWork() {
   if (ready_.empty())
     return NULL;
-  set<Edge*>::iterator i = ready_.begin();
-  Edge* edge = *i;
-  ready_.erase(i);
+  set<Edge*>::iterator e = ready_.begin();
+  Edge* edge = *e;
+  ready_.erase(e);
   return edge;
 }
 
@@ -131,11 +131,11 @@ void Plan::ResumeDelayedJobs(Edge* edge) {
 }
 
 void Plan::EdgeFinished(Edge* edge) {
-  map<Edge*, bool>::iterator i = want_.find(edge);
-  assert(i != want_.end());
-  if (i->second)
+  map<Edge*, bool>::iterator e = want_.find(edge);
+  assert(e != want_.end());
+  if (e->second)
     --wanted_edges_;
-  want_.erase(i);
+  want_.erase(e);
   edge->outputs_ready_ = true;
 
   // See if this job frees up any delayed jobs
@@ -150,20 +150,20 @@ void Plan::EdgeFinished(Edge* edge) {
 
 void Plan::NodeFinished(Node* node) {
   // See if we we want any edges from this node.
-  for (vector<Edge*>::const_iterator i = node->out_edges().begin();
-       i != node->out_edges().end(); ++i) {
-    map<Edge*, bool>::iterator want_i = want_.find(*i);
+  for (vector<Edge*>::const_iterator oe = node->out_edges().begin();
+       oe != node->out_edges().end(); ++oe) {
+    map<Edge*, bool>::iterator want_i = want_.find(*oe);
     if (want_i == want_.end())
       continue;
 
     // See if the edge is now ready.
-    if ((*i)->AllInputsReady()) {
+    if ((*oe)->AllInputsReady()) {
       if (want_i->second) {
-        ScheduleWork(*i);
+        ScheduleWork(*oe);
       } else {
         // We do not need to build this edge, but we might need to build one of
         // its dependents.
-        EdgeFinished(*i);
+        EdgeFinished(*oe);
       }
     }
   }
@@ -172,54 +172,55 @@ void Plan::NodeFinished(Node* node) {
 void Plan::CleanNode(DependencyScan* scan, Node* node) {
   node->set_dirty(false);
 
-  for (vector<Edge*>::const_iterator ei = node->out_edges().begin();
-       ei != node->out_edges().end(); ++ei) {
+  for (vector<Edge*>::const_iterator oe = node->out_edges().begin();
+       oe != node->out_edges().end(); ++oe) {
     // Don't process edges that we don't actually want.
-    map<Edge*, bool>::iterator want_i = want_.find(*ei);
+    map<Edge*, bool>::iterator want_i = want_.find(*oe);
     if (want_i == want_.end() || !want_i->second)
       continue;
 
     // Don't attempt to clean an edge if it failed to load deps.
-    if ((*ei)->deps_missing_)
+    if ((*oe)->deps_missing_)
       continue;
 
     // If all non-order-only inputs for this edge are now clean,
     // we might have changed the dirty state of the outputs.
     vector<Node*>::iterator
-        begin = (*ei)->inputs_.begin(),
-        end = (*ei)->inputs_.end() - (*ei)->order_only_deps_;
-    if (find_if(begin, end, mem_fun(&Node::dirty)) == end) {
-      // Recompute most_recent_input.
-      Node* most_recent_input = NULL;
-      for (vector<Node*>::iterator ni = begin; ni != end; ++ni) {
-        if (!most_recent_input || (*ni)->mtime() > most_recent_input->mtime())
-          most_recent_input = *ni;
+        begin = (*oe)->inputs_.begin(),
+        end = (*oe)->inputs_.end() - (*oe)->order_only_deps_;
+    if (find_if(begin, end, mem_fun(&Node::dirty)) != end)
+      continue;
+
+    // Recompute most_recent_input.
+    Node* most_recent_input = NULL;
+    for (vector<Node*>::iterator i = begin; i != end; ++i) {
+      if (!most_recent_input || (*i)->mtime() > most_recent_input->mtime())
+        most_recent_input = *i;
+    }
+
+    // Now, this edge is dirty if any of the outputs are dirty.
+    // If the edge isn't dirty, clean the outputs and mark the edge as not
+    // wanted.
+    if (!scan->RecomputeOutputsDirty(*oe, most_recent_input)) {
+      for (vector<Node*>::iterator o = (*oe)->outputs_.begin();
+           o != (*oe)->outputs_.end(); ++o) {
+        CleanNode(scan, *o);
       }
 
-      // Now, this edge is dirty if any of the outputs are dirty.
-      // If the edge isn't dirty, clean the outputs and mark the edge as not
-      // wanted.
-      if (!scan->RecomputeOutputsDirty(*ei, most_recent_input)) {
-        for (vector<Node*>::iterator ni = (*ei)->outputs_.begin();
-             ni != (*ei)->outputs_.end(); ++ni) {
-          CleanNode(scan, *ni);
-        }
-
-        want_i->second = false;
-        --wanted_edges_;
-        if (!(*ei)->is_phony())
-          --command_edges_;
-      }
+      want_i->second = false;
+      --wanted_edges_;
+      if (!(*oe)->is_phony())
+        --command_edges_;
     }
   }
 }
 
 void Plan::Dump() {
   printf("pending: %d\n", (int)want_.size());
-  for (map<Edge*, bool>::iterator i = want_.begin(); i != want_.end(); ++i) {
-    if (i->second)
+  for (map<Edge*, bool>::iterator e = want_.begin(); e != want_.end(); ++e) {
+    if (e->second)
       printf("want ");
-    i->first->Dump();
+    e->first->Dump();
   }
   printf("ready: %d\n", (int)ready_.size());
 }

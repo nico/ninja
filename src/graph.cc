@@ -66,7 +66,7 @@ bool Edge::AllInputsReady() const {
 struct EdgeEnv : public Env {
   enum EscapeKind { kShellEscape, kDoNotEscape };
 
-  explicit EdgeEnv(Edge* edge, EscapeKind escape)
+  EdgeEnv(Edge* edge, EscapeKind escape)
       : edge_(edge), escape_in_out_(escape) {}
   virtual string LookupVariable(const string& var);
 
@@ -155,9 +155,9 @@ void Edge::Dump(const char* prefix) const {
     printf("%s ", (*i)->path().c_str());
   }
   printf("--%s-> ", rule_->name().c_str());
-  for (vector<Node*>::const_iterator i = outputs_.begin();
-       i != outputs_.end() && *i != NULL; ++i) {
-    printf("%s ", (*i)->path().c_str());
+  for (vector<Node*>::const_iterator o = outputs_.begin();
+       o != outputs_.end() && *o != NULL; ++o) {
+    printf("%s ", (*o)->path().c_str());
   }
   if (pool_) {
     if (!pool_->name().empty()) {

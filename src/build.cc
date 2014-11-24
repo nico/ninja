@@ -338,11 +338,11 @@ void Builder::Cleanup() {
     vector<Edge*> active_edges = command_runner_->GetActiveEdges();
     command_runner_->Abort();
 
-    for (vector<Edge*>::iterator i = active_edges.begin();
-         i != active_edges.end(); ++i) {
-      string depfile = (*i)->GetUnescapedDepfile();
-      for (vector<Node*>::iterator ni = (*i)->outputs_.begin();
-           ni != (*i)->outputs_.end(); ++ni) {
+    for (vector<Edge*>::iterator e = active_edges.begin();
+         e != active_edges.end(); ++e) {
+      string depfile = (*e)->GetUnescapedDepfile();
+      for (vector<Node*>::iterator o = (*e)->outputs_.begin();
+           o != (*e)->outputs_.end(); ++o) {
         // Only delete this output if it was actually modified.  This is
         // important for things like the generator where we don't want to
         // delete the manifest file if we can avoid it.  But if the rule
@@ -351,8 +351,8 @@ void Builder::Cleanup() {
         // mentioned in a depfile, and the command touches its depfile
         // but is interrupted before it touches its output file.)
         if (!depfile.empty() ||
-            (*ni)->mtime() != disk_interface_->Stat((*ni)->path())) {
-          disk_interface_->RemoveFile((*ni)->path());
+            (*o)->mtime() != disk_interface_->Stat((*o)->path())) {
+          disk_interface_->RemoveFile((*o)->path());
         }
       }
       if (!depfile.empty())
@@ -487,9 +487,9 @@ bool Builder::StartEdge(Edge* edge, string* err) {
 
   // Create directories necessary for outputs.
   // XXX: this will block; do we care?
-  for (vector<Node*>::iterator i = edge->outputs_.begin();
-       i != edge->outputs_.end(); ++i) {
-    if (!disk_interface_->MakeDirs((*i)->path()))
+  for (vector<Node*>::iterator o = edge->outputs_.begin();
+       o != edge->outputs_.end(); ++o) {
+    if (!disk_interface_->MakeDirs((*o)->path()))
       return false;
   }
 
@@ -549,14 +549,14 @@ bool Builder::FinishCommand(CommandRunner::Result* result, string* err) {
   if (edge->GetBindingBool("restat") && !config_.dry_run) {
     bool node_cleaned = false;
 
-    for (vector<Node*>::iterator i = edge->outputs_.begin();
-         i != edge->outputs_.end(); ++i) {
-      TimeStamp new_mtime = disk_interface_->Stat((*i)->path());
-      if ((*i)->mtime() == new_mtime) {
+    for (vector<Node*>::iterator o = edge->outputs_.begin();
+         o != edge->outputs_.end(); ++o) {
+      TimeStamp new_mtime = disk_interface_->Stat((*o)->path());
+      if ((*o)->mtime() == new_mtime) {
         // The rule command did not change the output.  Propagate the clean
         // state through the build graph.
         // Note that this also applies to nonexistent outputs (mtime == 0).
-        plan_.CleanNode(&scan_, *i);
+        plan_.CleanNode(&scan_, *o);
         node_cleaned = true;
       }
     }
