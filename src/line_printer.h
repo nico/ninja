@@ -24,8 +24,8 @@ using namespace std;
 struct LinePrinter {
   LinePrinter();
 
-  bool is_smart_terminal() const { return smart_terminal_; }
-  void set_smart_terminal(bool smart) { smart_terminal_ = smart; }
+  bool is_smart_terminal() const { return terminal_type_ != TERM_DUMB; }
+  void force_dumb_terminal() { terminal_type_ = TERM_DUMB; }
 
   enum LineType {
     FULL,
@@ -43,8 +43,20 @@ struct LinePrinter {
   void SetConsoleLocked(bool locked);
 
  private:
-  /// Whether we can do fancy terminal control codes.
-  bool smart_terminal_;
+  /// The type of terminal ninja is writing to
+  enum TerminalType {
+    /// This terminal doesn't offer any color output or cursor control.
+    TERM_DUMB,
+#ifdef _WIN32
+    /// This terminal is cmd.exe or compatible.  It doesn't understand ANSI
+    /// control codes, but it offers colors and cursor control through an
+    /// explicit system API.
+    TERM_CMD,
+#endif
+    /// This terminal understands ANSI control codes  -- most interactive
+    /// terminals on POSIX, but also cygwin (and similar) on Windows.
+    TERM_ANSI
+  } terminal_type_;
 
   /// Whether the caret is at the beginning of a blank line.
   bool have_blank_line_;

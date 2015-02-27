@@ -80,7 +80,7 @@ BuildStatus::BuildStatus(const BuildConfig& config)
 
   // Don't do anything fancy in verbose mode.
   if (config_.verbosity != BuildConfig::NORMAL)
-    printer_.set_smart_terminal(false);
+    printer_.force_dumb_terminal();
 
   progress_status_format_ = getenv("NINJA_STATUS");
   if (!progress_status_format_)
