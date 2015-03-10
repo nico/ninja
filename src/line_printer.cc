@@ -39,10 +39,16 @@ LinePrinter::LinePrinter() : have_blank_line_(true), console_locked_(false) {
   // - Full Buffering."
   setvbuf(stdout, NULL, _IONBF, 0);
   console_ = GetStdHandle(STD_OUTPUT_HANDLE);
+
+fprintf(stderr, "handle %d\n", console_);
+if (console_ == INVALID_HANDLE_VALUE) fprintf(stderr, "INVALID_HANDLE_VALUE\n");
+if (GetConsoleWindow() == NULL) fprintf(stderr, "NULL console\n");
+
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   if (GetConsoleScreenBufferInfo(console_, &csbi)) {
     terminal_type_ = TERM_CMD;
   } else {
+fprintf(stderr, "err %s\n", GetLastErrorString().c_str());
     // ninja is either running in cmd.exe and writing to a pipe, or running in
     // cygwin (or msys, putty, rxvt, ...).  Look at TERM to distinguish between
     // these cases.
@@ -50,7 +56,7 @@ LinePrinter::LinePrinter() : have_blank_line_(true), console_locked_(false) {
     terminal_type_ = term && string(term) != "dumb" ? TERM_ANSI : TERM_DUMB;
 
     // There's no good way to distinguish "writing to an interactive terminal
-    // dreictly" and "writing to a pipe" in cygwin and friends.  Require
+    // directly" and "writing to a pipe" in cygwin and friends.  Require
     // $COLUMNS to exist to enable ANSI output.  This seems to be set in
     // interactive sessions but not on bots, so this prevents ANSI codes showing
     // up on bots.  (Note that this is still different from the "right" isatty()
@@ -58,6 +64,7 @@ LinePrinter::LinePrinter() : have_blank_line_(true), console_locked_(false) {
     // because ninja is writing to a pipe, but it won't do that on Windows when
     // not running in cmd.exe.)
 
+fprintf(stderr, "col %s\n", getenv("COLUMNS"));
     if (terminal_type_ == TERM_ANSI && !getenv("COLUMNS"))
       terminal_type_ = TERM_DUMB;
   }
