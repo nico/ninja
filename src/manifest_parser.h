@@ -15,6 +15,8 @@
 #ifndef NINJA_MANIFEST_PARSER_H_
 #define NINJA_MANIFEST_PARSER_H_
 
+#include <map>
+#include <set>
 #include <string>
 
 using namespace std;
@@ -48,7 +50,14 @@ private:
 
   /// Parse various statement types.
   bool ParsePool(string* err);
+
+  typedef map<string, set<string> > RefMap;
+  bool CheckRuleBindingDependencyCycle(const string& key,
+                                       const EvalString& value,
+                                       RefMap* reserved_binding_references,
+                                       string* err);
   bool ParseRule(string* err);
+
   bool ParseLet(string* key, EvalString* val, string* err);
   bool ParseEdge(string* err);
   bool ParseDefault(string* err);

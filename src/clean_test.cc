@@ -283,6 +283,7 @@ TEST_F(CleanTest, CleanRspFile) {
   ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule cc\n"
 "  command = cc $in > $out\n"
+// XXX fffffffffffffff
 "  rspfile = $rspfile\n"
 "  rspfile_content=$in\n"
 "build out1: cc in1\n"
@@ -300,6 +301,7 @@ TEST_F(CleanTest, CleanRsp) {
   ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
 "rule cat_rsp \n"
 "  command = cat $rspfile > $out\n"
+// XXX fffffffffffffff
 "  rspfile = $rspfile\n"
 "  rspfile_content = $in\n"
 "build in1: cat src1\n"

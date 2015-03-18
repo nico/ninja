@@ -121,6 +121,7 @@ TEST_F(ParserTest, ResponseFiles) {
   ASSERT_NO_FATAL_FAILURE(AssertParse(
 "rule cat_rsp\n"
 "  command = cat $rspfile > $out\n"
+// XXX fffffffffffffff
 "  rspfile = $rspfile\n"
 "  rspfile_content = $in\n"
 "\n"
@@ -768,6 +769,18 @@ TEST_F(ParserTest, Errors) {
                                   "  pool = unnamed_pool\n"
                                   "build out: run in\n", &err));
     EXPECT_EQ("input:5: unknown pool name 'unnamed_pool'\n", err);
+  }
+
+  {
+    State state;
+    ManifestParser parser(&state, NULL);
+    string err;
+    EXPECT_FALSE(parser.ParseTest("rule r\n"
+                                  "  description = $description\n", &err));
+    EXPECT_EQ("input:2: found cycle description -> description\n"
+              "  description = $description\n"
+              "                           ^ near here"
+              , err);
   }
 }
 

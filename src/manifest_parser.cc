@@ -14,6 +14,7 @@
 
 #include "manifest_parser.h"
 
+#include <queue>
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
@@ -147,6 +148,65 @@ bool ManifestParser::ParsePool(string* err) {
   return true;
 }
 
+bool ManifestParser::CheckRuleBindingDependencyCycle(
+    const string& key, const EvalString& value,
+    RefMap* reserved_binding_references, string* err) {
+// XXX this is too long and complicated
+
+  // Update graph.
+  // Invariant: directed graph seen so far doesn't contain a cycle yet.
+  // => new variable will be part of cycle, not just lead to it
+  struct : public Env {
+    virtual string LookupVariable(const string& var) {
+      if (Rule::IsReservedBinding(var))
+        rule_vars_.insert(var);
+      return "";
+    }
+    set<string> rule_vars_;
+  }
+  collector;
+  value.Evaluate(&collector);
+  (*reserved_binding_references)[key] = collector.rule_vars_;
+
+  // Check if `key` is on a cycle.  Doing this for all rule bindings is O(n^2),
+  // but n is bounded by Rule::IsReservedBinding(): At most 9 (assuming no
+  // generator specifies a rule binding twice), and realistically at most
+  // 3 (command, description, rspfile_content).
+  set<string> seen;
+
+  map<string, string> prev;
+  std::queue<string> q;
+  q.push(key);
+
+  while (!q.empty()) {
+    string s = q.front();
+    q.pop();
+
+    if (seen.count(s)) {
+      string cycle = s;
+      string c = prev[s];
+      while (c != s) {
+        cycle += " -> " + c;
+        c = prev[c];
+      }
+      cycle += " -> " + s;
+      return lexer_.Error("found cycle " + cycle, err);
+    }
+    seen.insert(s);
+
+    RefMap::const_iterator i = reserved_binding_references->find(s);
+    if (i == reserved_binding_references->end()) continue;
+
+    for (set<string>::const_iterator it = i->second.begin(),
+                                     end = i->second.end();
+         it != end; ++it) {
+      q.push(*it);
+      prev[*it] = s;
+    }
+  }
+
+  return true;
+}
 
 bool ManifestParser::ParseRule(string* err) {
   string name;
@@ -160,6 +220,7 @@ bool ManifestParser::ParseRule(string* err) {
     return lexer_.Error("duplicate rule '" + name + "'", err);
 
   Rule* rule = new Rule(name);  // XXX scoped_ptr
+  RefMap reserved_binding_references;
 
   while (lexer_.PeekToken(Lexer::INDENT)) {
     string key;
@@ -168,6 +229,10 @@ bool ManifestParser::ParseRule(string* err) {
       return false;
 
     if (Rule::IsReservedBinding(key)) {
+      if (!CheckRuleBindingDependencyCycle(key, value,
+                                           &reserved_binding_references, err)) {
+        return false;
+      }
       rule->AddBinding(key, value);
     } else {
       // Die on other keyvals for now; revisit if we want to add a
