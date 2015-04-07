@@ -207,3 +207,33 @@ Make sure ninja can find the asan runtime:
 
     DYLD_LIBRARY_PATH=path/to//lib/clang/3.7.0/lib/darwin/ \
         afl-fuzz -i misc/afl-fuzz -o /tmp/afl-fuzz-out ./ninja -n -f @@
+
+### PGO
+
+TODO: gcc, msvc
+
+TODO: if this is useful, it should probably be part of some script instead of
+in here
+
+#### Using clang
+
+Make sure your clang checkout includes compiler-rt.
+
+    # 1. Generate profiles.
+    CXX=path/to/clang++ \
+        CFLAGS="-fprofile-instr-generate -isysroot $(xcrun -show-sdk-path)" \
+        LDFLAGS=-fprofile-instr-generate
+        ./configure.py
+    LLVM_PROFILE_FILE=$PWD/ninja.profraw ./ninja manifest_parser_perftest
+    LLVM_PROFILE_FILE=$PWD/parser.profraw ./manifest_parser_perftest
+    path/to/llvm-profdata merge -output=code.profdata \
+        ninja.profraw parser.profraw
+
+    # 2. Use profiles.
+    CXX=path/to/clang++ \
+        CFLAGS="-fprofile-instr-use=code.profdata -isysroot $(xcrun -show-sdk-path)" \
+        ./configure.py
+     ninja
+
+See http://clang.llvm.org/docs/UsersManual.html#profile-guided-optimization for
+details.
