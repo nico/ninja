@@ -23,6 +23,9 @@
 #include <string.h>
 #include <sys/wait.h>
 
+#include <spawn.h>
+extern char** environ;
+
 #include "util.h"
 
 Subprocess::Subprocess(bool use_console) : fd_(-1), pid_(-1),
@@ -48,6 +51,8 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
   if (fd_ >= static_cast<int>(FD_SETSIZE))
     Fatal("pipe: %s", strerror(EMFILE));
 #endif  // !USE_PPOLL
+
+#if 0
   SetCloseOnExec(fd_);
 
   pid_ = fork();
@@ -94,7 +99,7 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
       // In the console case, output_pipe is still inherited by the child and
       // closed when the subprocess finishes, which then notifies ninja.
 
-      execl("/bin/sh", "/bin/sh", "-c", command.c_str(), (char *) NULL);
+      execl("/bin/sh", "/bin/sh", "-c", command.c_str(), (char*) NULL);
     } while (false);
 
     // If we get here, something went wrong; the execl should have
@@ -106,6 +111,48 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
     }
     _exit(1);
   }
+#else
+  // XXX error handling
+  posix_spawn_file_actions_t action;
+
+  posix_spawn_file_actions_init(&action);
+  posix_spawn_file_actions_addclose(&action, output_pipe[0]);
+
+  posix_spawnattr_t attr;
+  posix_spawnattr_init(&attr);
+
+  // XXX signal mask
+
+  // XXX http://ewontfix.com/7/ for linux; also add
+  // posix_spawnattr_setflags(&attr, POSIX_SPAWN_USEVFORK)
+  // and maybe `#define _GNU_SOURCE` before including spawn.h
+
+  if (!use_console_) {
+    // XXX setsid not possible via posix_spawn :-/
+    // setpgid(0, 0) can be done though.
+    // XXX check that this actually works
+    posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP);
+    posix_spawnattr_setpgroup(&attr, 0);
+
+    // Open /dev/null over stdin.
+    posix_spawn_file_actions_addopen(&action, 0, "/dev/null", O_RDONLY, 0);
+
+    posix_spawn_file_actions_adddup2(&action, output_pipe[1], 1);
+    posix_spawn_file_actions_adddup2(&action, output_pipe[1], 2);
+    // In the console case, output_pipe is still inherited by the child and
+    // closed when the subprocess finishes, which then notifies ninja.
+  }
+
+  char* spawned_args[] = { "/bin/sh", "-c", (char*)command.c_str(), NULL };
+  // XXX is envp=environ an OS X-ism? (with NULL envp the env is pretty empty,
+  // at least on OS X).
+  if (posix_spawn(&pid_, "/bin/sh", &action, NULL, spawned_args, environ) !=
+      0) {
+    Fatal("posix_spawnp: %s", strerror(errno));
+  }
+  posix_spawnattr_destroy(&attr);
+  posix_spawn_file_actions_destroy(&action);
+#endif
 
   close(output_pipe[1]);
   return true;
