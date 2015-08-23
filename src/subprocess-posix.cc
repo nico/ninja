@@ -51,10 +51,9 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
   if (fd_ >= static_cast<int>(FD_SETSIZE))
     Fatal("pipe: %s", strerror(EMFILE));
 #endif  // !USE_PPOLL
-
-#if 0
   SetCloseOnExec(fd_);
 
+#if 0
   pid_ = fork();
   if (pid_ < 0)
     Fatal("fork: %s", strerror(errno));
@@ -112,46 +111,65 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
     _exit(1);
   }
 #else
-  // XXX error handling
   posix_spawn_file_actions_t action;
+  if (posix_spawn_file_actions_init(&action) != 0)
+    Fatal("posix_spawn_file_actions_init: %s", strerror(errno));
 
-  posix_spawn_file_actions_init(&action);
-  posix_spawn_file_actions_addclose(&action, output_pipe[0]);
+  if (posix_spawn_file_actions_addclose(&action, output_pipe[0]) != 0)
+    Fatal("posix_spawn_file_actions_addclose: %s", strerror(errno));
 
   posix_spawnattr_t attr;
-  posix_spawnattr_init(&attr);
+  if (posix_spawnattr_init(&attr) != 0)
+    Fatal("posix_spawnattr_init: %s", strerror(errno));
 
-  // XXX signal mask
+  short flags = 0;
+
+  flags |= POSIX_SPAWN_SETSIGMASK;
+  if (posix_spawnattr_setsigmask(&attr, &set->old_mask_) != 0)
+    Fatal("posix_spawnattr_setsigmask: %s", strerror(errno));
+  // Signals which are set to be caught in the calling process image are set to
+  // default action in the new process image, so no explicit
+  // POSIX_SPAWN_SETSIGDEF parameter is needed.
 
   // XXX http://ewontfix.com/7/ for linux; also add
-  // posix_spawnattr_setflags(&attr, POSIX_SPAWN_USEVFORK)
-  // and maybe `#define _GNU_SOURCE` before including spawn.h
+  // flags |= POSIX_SPAWN_USEVFORK and maybe `#define _GNU_SOURCE` before
+  // including spawn.h
 
   if (!use_console_) {
     // XXX setsid not possible via posix_spawn :-/
     // setpgid(0, 0) can be done though.
     // XXX check that this actually works
-    posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP);
-    posix_spawnattr_setpgroup(&attr, 0);
+    flags |= POSIX_SPAWN_SETPGROUP;
+    if (posix_spawnattr_setpgroup(&attr, 0) != 0)
+      Fatal("posix_spawnattr_setpgroup: %s", strerror(errno));
 
     // Open /dev/null over stdin.
-    posix_spawn_file_actions_addopen(&action, 0, "/dev/null", O_RDONLY, 0);
+    if (posix_spawn_file_actions_addopen(&action, 0, "/dev/null", O_RDONLY,
+                                         0) != 0) {
+      Fatal("posix_spawn_file_actions_addopen: %s", strerror(errno));
+    }
 
-    posix_spawn_file_actions_adddup2(&action, output_pipe[1], 1);
-    posix_spawn_file_actions_adddup2(&action, output_pipe[1], 2);
+    if (posix_spawn_file_actions_adddup2(&action, output_pipe[1], 1) != 0)
+      Fatal("posix_spawn_file_actions_adddup2: %s", strerror(errno));
+    if (posix_spawn_file_actions_adddup2(&action, output_pipe[1], 2) != 0)
+      Fatal("posix_spawn_file_actions_adddup2: %s", strerror(errno));
     // In the console case, output_pipe is still inherited by the child and
     // closed when the subprocess finishes, which then notifies ninja.
   }
 
+  if (posix_spawnattr_setflags(&attr, flags) != 0)
+    Fatal("posix_spawnattr_setflags: %s", strerror(errno));
+
   char* spawned_args[] = { "/bin/sh", "-c", (char*)command.c_str(), NULL };
   // XXX is envp=environ an OS X-ism? (with NULL envp the env is pretty empty,
   // at least on OS X).
-  if (posix_spawn(&pid_, "/bin/sh", &action, NULL, spawned_args, environ) !=
-      0) {
-    Fatal("posix_spawnp: %s", strerror(errno));
-  }
-  posix_spawnattr_destroy(&attr);
-  posix_spawn_file_actions_destroy(&action);
+  if (posix_spawn(&pid_, "/bin/sh", &action, &attr, spawned_args, environ) != 0)
+    Fatal("posix_spawn: %s", strerror(errno));
+
+  if (posix_spawnattr_destroy(&attr) != 0)
+    Fatal("posix_spawnattr_destroy: %s", strerror(errno));
+  if (posix_spawn_file_actions_destroy(&action) != 0)
+    Fatal("posix_spawn_file_actions_destroy: %s", strerror(errno));
 #endif
 
   close(output_pipe[1]);

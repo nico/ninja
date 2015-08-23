@@ -157,6 +157,7 @@ TEST_F(SubprocessTest, NoConsole) {
     subprocs_.DoWork();
   }
 
+  // XXX this fails without the setsid
   EXPECT_NE(ExitSuccess, subproc->Finish());
 }
 
