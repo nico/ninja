@@ -132,8 +132,9 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
   // POSIX_SPAWN_SETSIGDEF parameter is needed.
 
   // XXX http://ewontfix.com/7/ for linux; also add
-  // flags |= POSIX_SPAWN_USEVFORK and maybe `#define _GNU_SOURCE` before
-  // including spawn.h
+#if defined(__GLIBC__)
+  flags |= POSIX_SPAWN_USEVFORK;
+#endif
 
   if (!use_console_) {
     // XXX setsid not possible via posix_spawn :-/
@@ -160,7 +161,8 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
   if (posix_spawnattr_setflags(&attr, flags) != 0)
     Fatal("posix_spawnattr_setflags: %s", strerror(errno));
 
-  char* spawned_args[] = { "/bin/sh", "-c", (char*)command.c_str(), NULL };
+  char* spawned_args[] = { (char*)"/bin/sh", (char*)"-c",
+                           (char*)command.c_str(), NULL };
   // XXX is envp=environ an OS X-ism? (with NULL envp the env is pretty empty,
   // at least on OS X).
   if (posix_spawn(&pid_, "/bin/sh", &action, &attr, spawned_args, environ) != 0)
