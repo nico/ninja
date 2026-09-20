@@ -81,6 +81,14 @@ struct Lexer {
     return ReadEvalString(path, true, err);
   }
 
+  /// Fast path for ReadPath(): most paths in large manifests contain no
+  /// $-escapes and can be used directly out of the input buffer.
+  /// If the path at the current position is such a path, consumes it, points
+  /// |path| at it (may be empty, like for ReadPath()), sets |is_canonical| to
+  /// true if CanonicalizePath() is known to be a no-op for it, and returns
+  /// true. Else consumes nothing and returns false; call ReadPath() then.
+  bool ReadSimplePath(StringPiece* path, bool* is_canonical);
+
   /// Read the value side of a var = value line (complete with $escapes).
   /// Returns false only on error.
   bool ReadVarValue(EvalString* value, std::string* err) {

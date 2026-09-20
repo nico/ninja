@@ -210,6 +210,62 @@ bool Lexer::ReadIdent(string* out) {
   return true;
 }
 
+bool Lexer::ReadSimplePath(StringPiece* path, bool* is_canonical) {
+  // Bit 0: character ends a simple path, see ReadEvalString().
+  // Bit 1: character makes a path non-canonical at the start of a component.
+  static const unsigned char kCharClass[256] = {
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0,  // \0 \n \r
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2,  // space $ . /
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,  // :
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,  // |
+  };
+
+  const char* start = ofs_;
+  const char* p = start;
+  // CanonicalizePath() keeps one leading '/' or any number of leading "../".
+  // The input is NUL-terminated, so peeking ahead is safe.
+  if (*p == '/') {
+    ++p;
+  } else {
+    while (p[0] == '.' && p[1] == '.' && p[2] == '/')
+      p += 3;
+  }
+
+  // After that, a path is canonical if it has no empty components and no
+  // components starting with '.', and if it doesn't end in a slash. This
+  // rejects a few canonical paths (e.g. "foo/.bar"), which is fine.
+  unsigned non_canonical = 0;
+  unsigned component_start = 2;
+  unsigned char c;
+  while (!((c = kCharClass[static_cast<unsigned char>(*p)]) & 1)) {
+    non_canonical |= c & component_start;
+    component_start = *p == '/' ? 2 : 0;
+#ifdef _WIN32
+    if (*p == '\\')
+      non_canonical = 2;  // Needs slash_bits.
+#endif
+    ++p;
+  }
+  if (*p == '$' || *p == '\r' || *p == '\0')
+    return false;  // Let ReadPath() handle escapes and errors.
+  if (p != start && p[-1] == '/')
+    non_canonical = 2;
+
+  *path = StringPiece(start, p - start);
+  *is_canonical = !non_canonical;
+  last_token_ = p;
+  ofs_ = p;
+  if (p[0] == ' ' && p[1] != ' ' && p[1] != '$')
+    ofs_ = p + 1;  // Inlined common case of EatWhitespace().
+  else
+    EatWhitespace();
+  return true;
+}
+
 bool Lexer::ReadEvalString(EvalString* eval, bool path, string* err) {
   const char* p = ofs_;
   const char* q;

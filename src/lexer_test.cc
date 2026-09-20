@@ -16,6 +16,7 @@
 
 #include "eval_env.h"
 #include "test.h"
+#include "util.h"
 
 using namespace std;
 
@@ -37,6 +38,102 @@ TEST(Lexer, ReadEvalStringEscapes) {
   EXPECT_EQ("", err);
   EXPECT_EQ("[ $ab c: cde]",
             eval.Serialize());
+}
+
+TEST(Lexer, ReadSimplePath) {
+  Lexer lexer("out/foo.o ../../a/b.cc   /abs/x a$ b | c $\n  d: e\n");
+  StringPiece path;
+  bool is_canonical = false;
+  EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+  EXPECT_EQ("out/foo.o", path.AsString());
+  EXPECT_TRUE(is_canonical);
+  EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+  EXPECT_EQ("../../a/b.cc", path.AsString());
+  EXPECT_TRUE(is_canonical);
+  EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+  EXPECT_EQ("/abs/x", path.AsString());
+  EXPECT_TRUE(is_canonical);
+
+  // Paths with $-escapes aren't simple. Nothing is consumed, so ReadPath()
+  // can read them.
+  EXPECT_FALSE(lexer.ReadSimplePath(&path, &is_canonical));
+  EvalString eval;
+  string err;
+  EXPECT_TRUE(lexer.ReadPath(&eval, &err));
+  EXPECT_EQ("[a b]", eval.Serialize());
+
+  // Delimiters produce an empty path, like with ReadPath().
+  EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+  EXPECT_TRUE(path.empty());
+  EXPECT_EQ(Lexer::PIPE, lexer.ReadToken());
+
+  // A path followed by a line continuation.
+  EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+  EXPECT_EQ("c", path.AsString());
+  EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+  EXPECT_EQ("d", path.AsString());
+  EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+  EXPECT_TRUE(path.empty());
+  EXPECT_EQ(Lexer::COLON, lexer.ReadToken());
+  EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+  EXPECT_EQ("e", path.AsString());
+  EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+  EXPECT_TRUE(path.empty());
+  EXPECT_EQ(Lexer::NEWLINE, lexer.ReadToken());
+  EXPECT_EQ(Lexer::TEOF, lexer.ReadToken());
+}
+
+TEST(Lexer, ReadSimplePathErrorsAreLeftToReadPath) {
+  StringPiece path;
+  bool is_canonical;
+  Lexer eof("foo");
+  EXPECT_FALSE(eof.ReadSimplePath(&path, &is_canonical));
+  Lexer cr("foo\rbar\n");
+  EXPECT_FALSE(cr.ReadSimplePath(&path, &is_canonical));
+  Lexer crlf("foo\r\n");
+  EXPECT_FALSE(crlf.ReadSimplePath(&path, &is_canonical));
+}
+
+TEST(Lexer, ReadSimplePathCanonical) {
+  // If ReadSimplePath() claims that a path is canonical, CanonicalizePath()
+  // must not change it.
+  const char* kComponents[] = { "", ".", "..", "a", ".a", "a.", "..a", "bc" };
+  const size_t n = sizeof(kComponents) / sizeof(kComponents[0]);
+  int num_canonical = 0;
+  for (size_t i = 0; i < n * n * n * n; ++i) {
+    string in = string(kComponents[i % n]) + "/" + kComponents[i / n % n] +
+                "/" + kComponents[i / n / n % n] + "/" +
+                kComponents[i / n / n / n];
+    // Also test paths with fewer components and without trailing slashes.
+    while (!in.empty()) {
+      Lexer lexer((in + "\n").c_str());
+      StringPiece path;
+      bool is_canonical = false;
+      EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+      EXPECT_EQ(in, path.AsString());
+      if (is_canonical) {
+        string canonical = in;
+        uint64_t slash_bits;
+        CanonicalizePath(&canonical, &slash_bits);
+        EXPECT_EQ(in, canonical);
+        EXPECT_EQ(0u, slash_bits);
+        ++num_canonical;
+      }
+      in.resize(in.size() - 1);
+    }
+  }
+  EXPECT_GT(num_canonical, 100);
+
+  Lexer lexer("a/b a/b/ a//b ./a a/./b a/../b ../../a ../a/../b / .. .\n");
+  const bool kExpected[] = { true, false, false, false, false, false, true,
+                             false, false, false, false };
+  for (size_t i = 0; i < sizeof(kExpected) / sizeof(kExpected[0]); ++i) {
+    StringPiece path;
+    bool is_canonical = false;
+    EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+    EXPECT_FALSE(path.empty());
+    EXPECT_EQ(kExpected[i], is_canonical);
+  }
 }
 
 TEST(Lexer, ReadIdent) {

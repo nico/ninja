@@ -18,9 +18,13 @@
 #include "parser.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
+#include "string_piece.h"
+
 struct BindingEnv;
+struct Env;
 struct EvalString;
 
 enum DupeEdgeAction {
@@ -72,11 +76,30 @@ struct ManifestParser : public Parser {
   ManifestParserOptions options_;
   bool quiet_;
 
-  // ins_/out_/validations_ are reused across invocations to ParseEdge(),
+  /// A path in a build statement. Most paths contain no $-escapes; those
+  /// are kept as a StringPiece into the lexer's input instead of as an
+  /// EvalString, which is much cheaper.
+  struct EdgePath {
+    StringPiece plain_;   // Only valid if eval_index_ < 0.
+    int eval_index_;      // Index into evals_, or -1.
+    bool is_canonical_;   // Only valid if eval_index_ < 0.
+  };
+
+  /// Reads paths into |paths| until there are no more paths.
+  bool ReadEdgePaths(std::vector<EdgePath>* paths, std::string* err);
+
+  /// Evaluates and canonicalizes |edge_path|. |path| points either into
+  /// the lexer's input or into |scratch|.
+  bool EvaluateEdgePath(const EdgePath& edge_path, Env* env,
+                        std::string* scratch, StringPiece* path,
+                        uint64_t* slash_bits, std::string* err);
+
+  // ins_/out_/validations_/evals_ are reused across invocations to ParseEdge(),
   // to save on the otherwise constant memory reallocation.
   // subparser_ is reused solely to get better reuse out ins_/outs_/validation_.
   std::unique_ptr<ManifestParser> subparser_;
-  std::vector<EvalString> ins_, outs_, validations_;
+  std::vector<EdgePath> ins_, outs_, validations_;
+  std::vector<EvalString> evals_;
 };
 
 #endif  // NINJA_MANIFEST_PARSER_H_

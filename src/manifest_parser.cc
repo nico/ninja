@@ -217,36 +217,60 @@ bool ManifestParser::ParseDefault(string* err) {
   return ExpectToken(Lexer::NEWLINE, err);
 }
 
+bool ManifestParser::ReadEdgePaths(vector<EdgePath>* paths, string* err) {
+  for (;;) {
+    EdgePath path;
+    path.eval_index_ = -1;
+    if (!lexer_.ReadSimplePath(&path.plain_, &path.is_canonical_)) {
+      EvalString eval;
+      if (!lexer_.ReadPath(&eval, err))
+        return false;
+      if (eval.empty())
+        return true;
+      path.eval_index_ = static_cast<int>(evals_.size());
+      evals_.push_back(std::move(eval));
+    } else if (path.plain_.empty()) {
+      return true;
+    }
+    paths->push_back(path);
+  }
+}
+
+bool ManifestParser::EvaluateEdgePath(const EdgePath& edge_path, Env* env,
+                                      string* scratch, StringPiece* path,
+                                      uint64_t* slash_bits, string* err) {
+  if (edge_path.eval_index_ < 0 && edge_path.is_canonical_) {
+    *path = edge_path.plain_;
+    *slash_bits = 0;
+    return true;
+  }
+  if (edge_path.eval_index_ < 0)
+    scratch->assign(edge_path.plain_.str_, edge_path.plain_.len_);
+  else
+    *scratch = evals_[edge_path.eval_index_].Evaluate(env);
+  if (scratch->empty())
+    return lexer_.Error("empty path", err);
+  CanonicalizePath(scratch, slash_bits);
+  *path = *scratch;
+  return true;
+}
+
 bool ManifestParser::ParseEdge(string* err) {
   ins_.clear();
   outs_.clear();
   validations_.clear();
+  evals_.clear();
 
-  {
-    EvalString out;
-    if (!lexer_.ReadPath(&out, err))
-      return false;
-    while (!out.empty()) {
-      outs_.push_back(std::move(out));
-
-      out.Clear();
-      if (!lexer_.ReadPath(&out, err))
-        return false;
-    }
-  }
+  if (!ReadEdgePaths(&outs_, err))
+    return false;
 
   // Add all implicit outs, counting how many as we go.
   int implicit_outs = 0;
   if (lexer_.PeekToken(Lexer::PIPE)) {
-    for (;;) {
-      EvalString out;
-      if (!lexer_.ReadPath(&out, err))
-        return false;
-      if (out.empty())
-        break;
-      outs_.push_back(std::move(out));
-      ++implicit_outs;
-    }
+    size_t explicit_outs = outs_.size();
+    if (!ReadEdgePaths(&outs_, err))
+      return false;
+    implicit_outs = static_cast<int>(outs_.size() - explicit_outs);
   }
 
   if (outs_.empty())
@@ -263,54 +287,32 @@ bool ManifestParser::ParseEdge(string* err) {
   if (!rule)
     return lexer_.Error("unknown build rule '" + rule_name + "'", err);
 
-  for (;;) {
-    // XXX should we require one path here?
-    EvalString in;
-    if (!lexer_.ReadPath(&in, err))
-      return false;
-    if (in.empty())
-      break;
-    ins_.push_back(std::move(in));
-  }
+  // XXX should we require one path here?
+  if (!ReadEdgePaths(&ins_, err))
+    return false;
 
   // Add all implicit deps, counting how many as we go.
   int implicit = 0;
   if (lexer_.PeekToken(Lexer::PIPE)) {
-    for (;;) {
-      EvalString in;
-      if (!lexer_.ReadPath(&in, err))
-        return false;
-      if (in.empty())
-        break;
-      ins_.push_back(std::move(in));
-      ++implicit;
-    }
+    size_t before = ins_.size();
+    if (!ReadEdgePaths(&ins_, err))
+      return false;
+    implicit = static_cast<int>(ins_.size() - before);
   }
 
   // Add all order-only deps, counting how many as we go.
   int order_only = 0;
   if (lexer_.PeekToken(Lexer::PIPE2)) {
-    for (;;) {
-      EvalString in;
-      if (!lexer_.ReadPath(&in, err))
-        return false;
-      if (in.empty())
-        break;
-      ins_.push_back(std::move(in));
-      ++order_only;
-    }
+    size_t before = ins_.size();
+    if (!ReadEdgePaths(&ins_, err))
+      return false;
+    order_only = static_cast<int>(ins_.size() - before);
   }
 
-  // Add all validations, counting how many as we go.
+  // Add all validations.
   if (lexer_.PeekToken(Lexer::PIPEAT)) {
-    for (;;) {
-      EvalString validation;
-      if (!lexer_.ReadPath(&validation, err))
-        return false;
-      if (validation.empty())
-        break;
-      validations_.push_back(std::move(validation));
-    }
+    if (!ReadEdgePaths(&validations_, err))
+      return false;
   }
 
   if (!ExpectToken(Lexer::NEWLINE, err))
@@ -340,13 +342,14 @@ bool ManifestParser::ParseEdge(string* err) {
     edge->pool_ = pool;
   }
 
+  string scratch;
+  StringPiece path;
+  uint64_t slash_bits;
+
   edge->outputs_.reserve(outs_.size());
   for (size_t i = 0, e = outs_.size(); i != e; ++i) {
-    string path = outs_[i].Evaluate(env);
-    if (path.empty())
-      return lexer_.Error("empty path", err);
-    uint64_t slash_bits;
-    CanonicalizePath(&path, &slash_bits);
+    if (!EvaluateEdgePath(outs_[i], env, &scratch, &path, &slash_bits, err))
+      return false;
     if (!state_->AddOut(edge, path, slash_bits, err)) {
       lexer_.Error(std::string(*err), err);
       return false;
@@ -363,25 +366,19 @@ bool ManifestParser::ParseEdge(string* err) {
   edge->implicit_outs_ = implicit_outs;
 
   edge->inputs_.reserve(ins_.size());
-  for (vector<EvalString>::iterator i = ins_.begin(); i != ins_.end(); ++i) {
-    string path = i->Evaluate(env);
-    if (path.empty())
-      return lexer_.Error("empty path", err);
-    uint64_t slash_bits;
-    CanonicalizePath(&path, &slash_bits);
+  for (vector<EdgePath>::iterator i = ins_.begin(); i != ins_.end(); ++i) {
+    if (!EvaluateEdgePath(*i, env, &scratch, &path, &slash_bits, err))
+      return false;
     state_->AddIn(edge, path, slash_bits);
   }
   edge->implicit_deps_ = implicit;
   edge->order_only_deps_ = order_only;
 
   edge->validations_.reserve(validations_.size());
-  for (std::vector<EvalString>::iterator v = validations_.begin();
-      v != validations_.end(); ++v) {
-    string path = v->Evaluate(env);
-    if (path.empty())
-      return lexer_.Error("empty path", err);
-    uint64_t slash_bits;
-    CanonicalizePath(&path, &slash_bits);
+  for (vector<EdgePath>::iterator v = validations_.begin();
+       v != validations_.end(); ++v) {
+    if (!EvaluateEdgePath(*v, env, &scratch, &path, &slash_bits, err))
+      return false;
     state_->AddValidation(edge, path, slash_bits);
   }
 
