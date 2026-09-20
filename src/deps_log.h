@@ -15,6 +15,7 @@
 #ifndef NINJA_DEPS_LOG_H_
 #define NINJA_DEPS_LOG_H_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -102,9 +103,19 @@ struct DepsLog {
 
   /// Used for tests.
   const std::vector<Node*>& nodes() const { return nodes_; }
-  const std::vector<Deps*>& deps() const { return deps_; }
+  const std::vector<Deps*>& deps() {
+    LoadAllDeps();
+    return deps_;
+  }
 
  private:
+  /// Load() doesn't create Deps objects for the deps records it reads: a log
+  /// can have tens of millions of entries, and most builds need just a few
+  /// of them. It keeps the records around instead, and these turn them into
+  /// Deps on demand.
+  void LoadDeps(int id);
+  void LoadAllDeps();
+
   // Updates the in-memory representation.  Takes ownership of |deps|.
   // Returns true if a prior deps record was deleted.
   bool UpdateDeps(int out_id, Deps* deps);
@@ -123,6 +134,11 @@ struct DepsLog {
   std::vector<Node*> nodes_;
   /// Maps id -> deps of that id.
   std::vector<Deps*> deps_;
+  /// The contents of the log file, if there are ids in unloaded_deps_.
+  std::unique_ptr<char[]> loaded_log_;
+  /// Maps id -> offset in loaded_log_ of the deps record for that id that
+  /// hasn't been turned into an entry in deps_ yet. 0 if there is none.
+  std::vector<size_t> unloaded_deps_;
 
   friend struct DepsLogTest;
 };

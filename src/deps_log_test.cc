@@ -121,6 +121,74 @@ TEST_F(DepsLogTest, LotsOfDeps) {
   ASSERT_EQ(kNumDeps, log_deps->node_count);
 }
 
+// Load() doesn't create Deps for the records it reads until they are needed.
+// That must not be observable.
+TEST_F(DepsLogTest, DepsAreLoadedOnDemand) {
+  {
+    State state;
+    DepsLog log;
+    string err;
+    EXPECT_TRUE(log.OpenForWrite(kTestFilename, &err));
+    ASSERT_EQ("", err);
+
+    vector<Node*> deps;
+    deps.push_back(state.GetNode("foo.h", 0));
+    deps.push_back(state.GetNode("bar.h", 0));
+    log.RecordDeps(state.GetNode("out.o", 0), 1, deps);
+    deps.push_back(state.GetNode("baz.h", 0));
+    log.RecordDeps(state.GetNode("out2.o", 0), 2, deps);
+    log.RecordDeps(state.GetNode("out3.o", 0), 3, deps);
+    // Later records for the same output replace earlier ones.
+    deps.clear();
+    deps.push_back(state.GetNode("baz.h", 0));
+    log.RecordDeps(state.GetNode("out2.o", 0), 4, deps);
+    log.Close();
+  }
+
+  State state;
+  DepsLog log;
+  string err;
+  EXPECT_TRUE(log.Load(kTestFilename, &state, &err));
+  ASSERT_EQ("", err);
+
+  // Asking for the deps of a single node.
+  DepsLog::Deps* out2_deps = log.GetDeps(state.GetNode("out2.o", 0));
+  ASSERT_TRUE(out2_deps);
+  EXPECT_EQ(4, out2_deps->mtime);
+  ASSERT_EQ(1, out2_deps->node_count);
+  EXPECT_EQ("baz.h", out2_deps->nodes[0]->path());
+  EXPECT_EQ(out2_deps, log.GetDeps(state.GetNode("out2.o", 0)));
+  EXPECT_EQ(NULL, log.GetDeps(state.GetNode("foo.h", 0)));
+  EXPECT_EQ(NULL, log.GetDeps(state.GetNode("not_in_log", 0)));
+
+  // Recording new deps for a node whose deps haven't been asked for.
+  EXPECT_TRUE(log.OpenForWrite(kTestFilename, &err));
+  vector<Node*> deps;
+  deps.push_back(state.GetNode("new.h", 0));
+  log.RecordDeps(state.GetNode("out3.o", 0), 5, deps);
+  DepsLog::Deps* out3_deps = log.GetDeps(state.GetNode("out3.o", 0));
+  ASSERT_TRUE(out3_deps);
+  EXPECT_EQ(5, out3_deps->mtime);
+  ASSERT_EQ(1, out3_deps->node_count);
+  EXPECT_EQ("new.h", out3_deps->nodes[0]->path());
+
+  // Things that look at all deps see the ones that nobody asked for too.
+  EXPECT_EQ(state.GetNode("out.o", 0),
+            log.GetFirstReverseDepsNode(state.GetNode("foo.h", 0)));
+  int num_deps = 0;
+  for (DepsLog::Deps* node_deps : log.deps())
+    num_deps += node_deps ? 1 : 0;
+  EXPECT_EQ(3, num_deps);
+  DepsLog::Deps* out_deps = log.GetDeps(state.GetNode("out.o", 0));
+  ASSERT_TRUE(out_deps);
+  EXPECT_EQ(1, out_deps->mtime);
+  ASSERT_EQ(2, out_deps->node_count);
+  EXPECT_EQ("foo.h", out_deps->nodes[0]->path());
+  EXPECT_EQ("bar.h", out_deps->nodes[1]->path());
+  EXPECT_EQ(out2_deps, log.GetDeps(state.GetNode("out2.o", 0)));
+  log.Close();
+}
+
 // Verify that adding the same deps twice doesn't grow the file.
 TEST_F(DepsLogTest, DoubleEntry) {
   // Write some deps to the file and grab its size.
