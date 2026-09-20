@@ -20,6 +20,7 @@
 
 #include "build_log.h"
 #include "build_result.h"
+#include "debug_flags.h"
 #include "deps_log.h"
 #include "exit_status.h"
 #include "graph.h"
@@ -2039,6 +2040,61 @@ struct BuildDryRun : public BuildWithLogTest {
     config_.dry_run = true;
   }
 };
+
+TEST_F(BuildDryRun, NoDiskWrites) {
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+"rule cat_rsp\n"
+"  command = cat $rspfile > $out\n"
+"  rspfile = $rspfile\n"
+"  rspfile_content = $long_command\n"
+"  depfile = $out.d\n"
+"build dir/out1: cat_rsp in\n"
+"  rspfile = dir2/out1.rsp\n"
+"  long_command = Some very long command\n"));
+
+  fs_.Create("in", "");
+
+  string err;
+  EXPECT_TRUE(builder_.AddTarget("dir/out1", &err));
+  ASSERT_EQ("", err);
+  EXPECT_EQ(builder_.Build(&err), ExitSuccess);
+  ASSERT_EQ("", err);
+  ASSERT_EQ(1u, command_runner_.commands_ran_.size());
+
+  // A dry run doesn't create output directories, and doesn't write or remove
+  // response files.
+  EXPECT_TRUE(fs_.directories_made_.empty());
+  EXPECT_EQ(0u, fs_.files_created_.count("dir2/out1.rsp"));
+  EXPECT_EQ(0u, fs_.files_removed_.count("dir2/out1.rsp"));
+}
+
+TEST_F(BuildDryRun, KeepRspWritesResponseFiles) {
+  ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
+"rule cat_rsp\n"
+"  command = cat $rspfile > $out\n"
+"  rspfile = $rspfile\n"
+"  rspfile_content = $long_command\n"
+"build dir/out1: cat_rsp in\n"
+"  rspfile = dir/out1.rsp\n"
+"  long_command = Some very long command\n"));
+
+  fs_.Create("in", "");
+
+  // `-n -d keeprsp` is a way to get all response files without building.
+  g_keep_rsp = true;
+  string err;
+  EXPECT_TRUE(builder_.AddTarget("dir/out1", &err));
+  ASSERT_EQ("", err);
+  EXPECT_EQ(builder_.Build(&err), ExitSuccess);
+  g_keep_rsp = false;
+  ASSERT_EQ("", err);
+
+  ASSERT_EQ(1u, fs_.directories_made_.size());
+  EXPECT_EQ("dir", fs_.directories_made_[0]);
+  EXPECT_EQ(1u, fs_.files_created_.count("dir/out1.rsp"));
+  EXPECT_EQ(0u, fs_.files_removed_.count("dir/out1.rsp"));
+  EXPECT_EQ("Some very long command", fs_.files_["dir/out1.rsp"].contents);
+}
 
 TEST_F(BuildDryRun, AllCommandsShown) {
   ASSERT_NO_FATAL_FAILURE(AssertParse(&state_,
