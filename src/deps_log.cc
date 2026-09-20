@@ -26,6 +26,8 @@ typedef __int32 int32_t;
 typedef unsigned __int32 uint32_t;
 #endif
 
+#include <algorithm>
+
 #include "graph.h"
 #include "metrics.h"
 #include "state.h"
@@ -153,7 +155,6 @@ void DepsLog::Close() {
 
 LoadStatus DepsLog::Load(const string& path, State* state, string* err) {
   METRIC_RECORD(".ninja_deps load");
-  char buf[kMaxRecordSize + 1];
   FILE* f = fopen(path.c_str(), "rb");
   if (!f) {
     if (errno == ENOENT)
@@ -162,12 +163,45 @@ LoadStatus DepsLog::Load(const string& path, State* state, string* err) {
     return LOAD_ERROR;
   }
 
-  bool valid_header = fread(buf, kFileSignatureSize, 1, f) == 1 &&
-                      !memcmp(buf, kFileSignature, kFileSignatureSize);
+  // Read the whole file at once: it's much faster than two fread() calls per
+  // record, and deps records are used in place later, see LoadDeps().
+  size_t log_size = 0;
+  bool read_error = false;
+#ifdef _WIN32
+  if (_fseeki64(f, 0, SEEK_END) == 0 && _ftelli64(f) >= 0) {
+    log_size = static_cast<size_t>(_ftelli64(f));
+    read_error = _fseeki64(f, 0, SEEK_SET) != 0;
+  }
+#else
+  if (fseeko(f, 0, SEEK_END) == 0 && ftello(f) >= 0) {
+    log_size = static_cast<size_t>(ftello(f));
+    read_error = fseeko(f, 0, SEEK_SET) != 0;
+  }
+#endif
+  else {
+    read_error = true;
+  }
+  if (read_error) {
+    *err = strerror(errno);
+    fclose(f);
+    return LOAD_ERROR;
+  }
+  std::unique_ptr<char[]> log(new char[log_size + 1]);
+  log_size = fread(log.get(), 1, log_size, f);
+  // Like when reading record by record, a read error means that everything
+  // up to the error is used, and that the rest is dropped below.
+  int read_errno = ferror(f) ? errno : 0;
+  fclose(f);
+  const char* const data = log.get();
 
+  const size_t kHeaderSize = kFileSignatureSize + 4;
   int32_t version = 0;
-  bool valid_version =
-      fread(&version, 4, 1, f) == 1 && version == kCurrentVersion;
+  bool valid_header = log_size >= kFileSignatureSize &&
+                      !memcmp(data, kFileSignature, kFileSignatureSize);
+  if (valid_header && log_size >= kHeaderSize)
+    memcpy(&version, data + kFileSignatureSize, 4);
+  bool valid_version = valid_header && log_size >= kHeaderSize &&
+                       version == kCurrentVersion;
 
   // Note: For version differences, this should migrate to the new format.
   // But the v1 format could sometimes (rarely) end up with invalid data, so
@@ -178,63 +212,61 @@ LoadStatus DepsLog::Load(const string& path, State* state, string* err) {
       *err = "deps log version change; rebuilding";
     else
       *err = "bad deps log signature or version; starting over";
-    fclose(f);
     platformAwareUnlink(path.c_str());
     // Don't report this as a failure.  An empty deps log will cause
     // us to rebuild the outputs anyway.
     return LOAD_SUCCESS;
   }
 
-  long offset = ftell(f);
+  size_t offset = kHeaderSize;
   bool read_failed = false;
+  bool has_unloaded_deps = false;
   int unique_dep_record_count = 0;
   int total_dep_record_count = 0;
   for (;;) {
+    // A record is a 4-byte size followed by that many bytes. Everything is
+    // padded to 4 bytes, so records are aligned.
+    if (log_size - offset < sizeof(unsigned))
+      break;  // Like a short fread() at the end of the file: not an error.
     unsigned size;
-    if (fread(&size, sizeof(size), 1, f) < 1) {
-      if (!feof(f))
-        read_failed = true;
-      break;
-    }
+    memcpy(&size, data + offset, sizeof(size));
     bool is_deps = (size >> 31) != 0;
     size = size & 0x7FFFFFFF;
 
-    if (size > kMaxRecordSize || fread(buf, size, 1, f) < 1) {
+    if (size > kMaxRecordSize || log_size - offset - sizeof(size) < size) {
       read_failed = true;
       break;
     }
+    const char* buf = data + offset + sizeof(size);
 
     if (is_deps) {
-      if ((size % 4) != 0) {
+      if ((size % 4) != 0 || size < 12) {
         read_failed = true;
         break;
       }
-      int* deps_data = reinterpret_cast<int*>(buf);
+      const int* deps_data = reinterpret_cast<const int*>(buf);
       int out_id = deps_data[0];
-      TimeStamp mtime;
-      mtime = (TimeStamp)(((uint64_t)(unsigned int)deps_data[2] << 32) |
-                          (uint64_t)(unsigned int)deps_data[1]);
       deps_data += 3;
       int deps_count = (size / 4) - 3;
 
-      for (int i = 0; i < deps_count; ++i) {
-        int node_id = deps_data[i];
-        if (node_id >= (int)nodes_.size() || !nodes_[node_id]) {
-          read_failed = true;
-          break;
-        }
-      }
-      if (read_failed)
+      // Ids have to refer to nodes that have been seen already. Checking that
+      // is all that's done with the inputs here.
+      const unsigned num_nodes = static_cast<unsigned>(nodes_.size());
+      unsigned max_id = static_cast<unsigned>(out_id);
+      for (int i = 0; i < deps_count; ++i)
+        max_id = std::max(max_id, static_cast<unsigned>(deps_data[i]));
+      if (max_id >= num_nodes) {
+        read_failed = true;
         break;
-
-      Deps* deps = new Deps(mtime, deps_count);
-      for (int i = 0; i < deps_count; ++i) {
-        deps->nodes[i] = nodes_[deps_data[i]];
       }
 
       total_dep_record_count++;
-      if (!UpdateDeps(out_id, deps))
+      if (out_id >= static_cast<int>(unloaded_deps_.size()))
+        unloaded_deps_.resize(out_id + 1);
+      if (unloaded_deps_[out_id] == 0)
         ++unique_dep_record_count;
+      unloaded_deps_[out_id] = offset + sizeof(size);
+      has_unloaded_deps = true;
     } else {
       int path_size = size - 4;
       if (path_size <= 0) {
@@ -257,7 +289,8 @@ LoadStatus DepsLog::Load(const string& path, State* state, string* err) {
       // happen if two ninja processes write to the same deps log concurrently.
       // (This uses unary complement to make the checksum look less like a
       // dependency record entry.)
-      unsigned checksum = *reinterpret_cast<unsigned*>(buf + size - 4);
+      unsigned checksum;
+      memcpy(&checksum, buf + size - 4, sizeof(checksum));
       int expected_id = ~checksum;
       int id = static_cast<int>(nodes_.size());
       if (id != expected_id || node->id() >= 0) {
@@ -270,15 +303,19 @@ LoadStatus DepsLog::Load(const string& path, State* state, string* err) {
     offset += size + sizeof(size);
   }
 
-  if (read_failed) {
+  if (deps_.size() < unloaded_deps_.size())
+    deps_.resize(unloaded_deps_.size());
+  if (has_unloaded_deps)
+    loaded_log_ = std::move(log);
+
+  if (read_failed || read_errno != 0) {
     // An error occurred while loading; try to recover by truncating the
     // file to the last fully-read record.
-    if (ferror(f)) {
-      *err = strerror(ferror(f));
+    if (read_errno != 0) {
+      *err = strerror(read_errno);
     } else {
       *err = "premature end of file";
     }
-    fclose(f);
 
     if (!Truncate(path, offset, err))
       return LOAD_ERROR;
@@ -288,8 +325,6 @@ LoadStatus DepsLog::Load(const string& path, State* state, string* err) {
     *err += "; recovering";
     return LOAD_SUCCESS;
   }
-
-  fclose(f);
 
   // Rebuild the log if there are too many dead records.
   int kMinCompactionEntryCount = 1000;
@@ -307,10 +342,42 @@ DepsLog::Deps* DepsLog::GetDeps(Node* node) {
   // there's no deps recorded for the node.
   if (node->id() < 0 || node->id() >= (int)deps_.size())
     return NULL;
+  LoadDeps(node->id());
   return deps_[node->id()];
 }
 
+void DepsLog::LoadDeps(int id) {
+  if (id >= (int)unloaded_deps_.size() || unloaded_deps_[id] == 0)
+    return;
+  // Load() has checked that the record is valid.
+  const char* record = loaded_log_.get() + unloaded_deps_[id];
+  unloaded_deps_[id] = 0;
+  unsigned size;
+  memcpy(&size, record - sizeof(size), sizeof(size));
+  size = size & 0x7FFFFFFF;
+  const int* deps_data = reinterpret_cast<const int*>(record);
+  TimeStamp mtime;
+  mtime = (TimeStamp)(((uint64_t)(unsigned int)deps_data[2] << 32) |
+                      (uint64_t)(unsigned int)deps_data[1]);
+  deps_data += 3;
+  int deps_count = (size / 4) - 3;
+
+  Deps* deps = new Deps(mtime, deps_count);
+  for (int i = 0; i < deps_count; ++i)
+    deps->nodes[i] = nodes_[deps_data[i]];
+  assert(!deps_[id]);
+  deps_[id] = deps;
+}
+
+void DepsLog::LoadAllDeps() {
+  for (size_t id = 0; id < unloaded_deps_.size(); ++id)
+    LoadDeps(static_cast<int>(id));
+  unloaded_deps_.clear();
+  loaded_log_.reset();
+}
+
 Node* DepsLog::GetFirstReverseDepsNode(Node* node) {
+  LoadAllDeps();
   for (size_t id = 0; id < deps_.size(); ++id) {
     Deps* deps = deps_[id];
     if (!deps)
@@ -326,6 +393,7 @@ Node* DepsLog::GetFirstReverseDepsNode(Node* node) {
 bool DepsLog::Recompact(const string& path, string* err) {
   METRIC_RECORD(".ninja_deps recompact");
 
+  LoadAllDeps();
   Close();
   string temp_path = path + ".recompact";
 
@@ -380,9 +448,14 @@ bool DepsLog::UpdateDeps(int out_id, Deps* deps) {
   if (out_id >= (int)deps_.size())
     deps_.resize(out_id + 1);
 
-  bool delete_old = deps_[out_id] != NULL;
-  if (delete_old)
-    delete deps_[out_id];
+  // |deps| replaces a record that hasn't been turned into a Deps too.
+  bool had_unloaded_deps = out_id < (int)unloaded_deps_.size() &&
+                           unloaded_deps_[out_id] != 0;
+  if (had_unloaded_deps)
+    unloaded_deps_[out_id] = 0;
+
+  bool delete_old = deps_[out_id] != NULL || had_unloaded_deps;
+  delete deps_[out_id];
   deps_[out_id] = deps;
   return delete_old;
 }
