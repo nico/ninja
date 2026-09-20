@@ -731,7 +731,55 @@ bool Lexer::ReadSimplePath(StringPiece* path, bool* is_canonical) {
   return true;
 }
 
+// Returns the first '\n', '\r', '$' or NUL in [p, end), or |end|.
+static const char* FindEndOfPlainValue(const char* p, const char* end) {
+#if defined(NINJA_LEXER_NEON) || defined(NINJA_LEXER_SSE2)
+  while (end - p >= 16) {
+#if defined(NINJA_LEXER_NEON)
+    const uint8x16_t v = vld1q_u8(reinterpret_cast<const uint8_t*>(p));
+    const uint8x16_t special = vorrq_u8(
+        vorrq_u8(vceqq_u8(v, vdupq_n_u8('\n')), vceqq_u8(v, vdupq_n_u8('$'))),
+        vorrq_u8(vceqq_u8(v, vdupq_n_u8('\r')), vceqq_u8(v, vdupq_n_u8(0))));
+    uint64_t mask = vget_lane_u64(vreinterpret_u64_u8(
+        vshrn_n_u16(vreinterpretq_u16_u8(special), 4)), 0);
+    if (mask)
+      return p + __builtin_ctzll(mask) / 4;
+#else
+    const __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(p));
+    const __m128i special = _mm_or_si128(
+        _mm_or_si128(_mm_cmpeq_epi8(v, _mm_set1_epi8('\n')),
+                     _mm_cmpeq_epi8(v, _mm_set1_epi8('$'))),
+        _mm_or_si128(_mm_cmpeq_epi8(v, _mm_set1_epi8('\r')),
+                     _mm_cmpeq_epi8(v, _mm_set1_epi8(0))));
+    int mask = _mm_movemask_epi8(special);
+    if (mask)
+      return p + __builtin_ctz(mask);
+#endif
+    p += 16;
+  }
+#endif
+  for (; p < end; ++p) {
+    if (*p == '\n' || *p == '\r' || *p == '$' || *p == '\0')
+      break;
+  }
+  return p;
+}
+
 bool Lexer::ReadEvalString(EvalString* eval, bool path, string* err) {
+  if (!path) {
+    // Most variable values contain no $-escapes. The code below would add
+    // them to |eval| in many small pieces (it stops at every space, ':' and
+    // '|'), so handle them here: the value is everything up to the newline.
+    const char* start = ofs_;
+    const char* end = FindEndOfPlainValue(start, input_.str_ + input_.len_);
+    if (end < input_.str_ + input_.len_ && *end == '\n') {
+      if (end != start)
+        eval->AddText(StringPiece(start, end - start));
+      last_token_ = end;
+      ofs_ = end + 1;
+      return true;
+    }
+  }
   const char* p = ofs_;
   const char* q;
   const char* start;

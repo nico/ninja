@@ -30,6 +30,49 @@ TEST(Lexer, ReadVarValue) {
             eval.Serialize());
 }
 
+TEST(Lexer, ReadVarValuePlain) {
+  // Values without $-escapes are read in one piece, 16 bytes at a time while
+  // there's enough input left. Put interesting things at all offsets.
+  for (size_t length = 0; length < 40; ++length) {
+    string value;
+    for (size_t i = 0; i < length; ++i)
+      value += " :|a"[i % 4];
+    const char* kRest[] = {
+      "\nnext = value that is longer than 16 bytes\n",  // Plain.
+      "$\n  continued\nnext = value\n",                // Needs the slow path.
+      "${var} $$ more\nnext = value\n",
+      "\r\nnext = value\r\n",
+      "\n",
+    };
+    const char* kExpectedRest[] = { "", "continued", "[$var][ $ more]", "", "" };
+    for (size_t i = 0; i < sizeof(kRest) / sizeof(kRest[0]); ++i) {
+      string input = value + kRest[i];
+      Lexer lexer(input.c_str());
+      EvalString eval;
+      string err;
+      EXPECT_TRUE(lexer.ReadVarValue(&eval, &err));
+      EXPECT_EQ("", err);
+      string expected = value.empty() ? "" : "[" + value + "]";
+      if (i == 1)
+        expected = "[" + value + kExpectedRest[i] + "]";
+      else if (i == 2)
+        expected += kExpectedRest[i];
+      EXPECT_EQ(expected, eval.Serialize()) << input;
+      if (i == 0 || i == 3) {
+        // The lexer continues after the newline.
+        EXPECT_EQ(Lexer::IDENT, lexer.ReadToken());
+      }
+    }
+
+    // A value that isn't terminated by a newline is an error.
+    Lexer lexer(value.c_str());
+    EvalString eval;
+    string err;
+    EXPECT_FALSE(lexer.ReadVarValue(&eval, &err));
+    EXPECT_NE(string::npos, err.find("unexpected EOF")) << err;
+  }
+}
+
 TEST(Lexer, ReadEvalStringEscapes) {
   Lexer lexer("$ $$ab c$: $\ncde\n");
   EvalString eval;
