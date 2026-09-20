@@ -19,6 +19,7 @@
 #include "test.h"
 
 #include <algorithm>
+#include <mutex>
 
 #include <errno.h>
 #include <stdlib.h>
@@ -176,6 +177,9 @@ bool VirtualFileSystem::MakeDir(const string& path) {
 FileReader::Status VirtualFileSystem::ReadFile(const string& path,
                                                string* contents,
                                                string* err) {
+  // ManifestParser may call this on several threads.
+  static std::mutex* mutex = new std::mutex;
+  std::lock_guard<std::mutex> lock(*mutex);
   files_read_.push_back(path);
   FileMap::iterator i = files_.find(path);
   if (i != files_.end()) {

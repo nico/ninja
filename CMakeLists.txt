@@ -182,6 +182,10 @@ else()
     target_link_libraries(libninja PUBLIC "-lperfstat")
   endif()
 endif()
+# The manifest parser uses std::thread.
+find_package(Threads REQUIRED)
+target_link_libraries(libninja PUBLIC Threads::Threads)
+
 get_property(_src_ninja TARGET libninja PROPERTY SOURCES)
 if("src/getopt.c" IN_LIST _src_ninja)
   # Build getopt.c, which can be compiled as either C or C++, as C++

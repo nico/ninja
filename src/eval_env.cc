@@ -19,37 +19,140 @@
 using namespace std;
 
 std::string BindingEnv::LookupVariable(StringPiece var) {
+  // This is called by the thread that owns this scope, or by anyone once
+  // parsing is done. Both see everything in this scope.
+  bool found;
+  return LookupVariableAt(var, INT_MAX, &found);
+}
+
+std::string BindingEnv::LookupVariableAt(StringPiece var, int snapshot,
+                                         bool* found) {
+  *found = true;
   const auto i = bindings_.find(var);
   if (i != bindings_.end())
     return i->second;
+  if (concurrent_ && concurrent_->num_late_bindings.load() > 0) {
+    // The owning thread is the only one that writes, so it could read without
+    // the lock. It's not worth distinguishing the two cases.
+    std::lock_guard<std::mutex> lock(concurrent_->mutex);
+    const auto late = concurrent_->late_bindings.find(var);
+    if (late != concurrent_->late_bindings.end()) {
+      if (late->second.version <= snapshot)
+        return late->second.value;
+      // If the binding was added after the snapshot, it doesn't exist as far
+      // as the caller is concerned. Else the caller should get an older value,
+      // which is gone.
+      if (late->second.first_version <= snapshot) {
+        concurrent_->conflict->store(true);
+        return late->second.value;
+      }
+    }
+  }
   if (parent_)
-    return parent_->LookupVariable(var);
+    return parent_->LookupVariableAt(var, parent_snapshot_, found);
+  *found = false;
   return "";
 }
 
 void BindingEnv::AddBinding(const std::string& key, StringPiece val) {
+  if (concurrent_) {
+    if (bindings_.find(key) != bindings_.end()) {
+      // Children may be reading the old value without synchronization, and
+      // children created earlier must keep seeing the old value.
+      concurrent_->conflict->store(true);
+      return;
+    }
+    // Overwriting a value that was added since BeginConcurrentAccess() is
+    // fine: children that should still see the old value notice that when
+    // they look it up.
+    std::lock_guard<std::mutex> lock(concurrent_->mutex);
+    auto& entry = concurrent_->late_bindings[key];
+    entry.value.assign(val.begin(), val.end());
+    entry.version = ++concurrent_->version;
+    if (entry.first_version == 0)
+      entry.first_version = entry.version;
+    concurrent_->num_late_bindings.store(
+        static_cast<int>(concurrent_->late_bindings.size()));
+    return;
+  }
   bindings_[key].assign(val.begin(), val.end());
 }
 
 void BindingEnv::AddRule(std::unique_ptr<const Rule> rule) {
   assert(LookupRuleCurrentScope(rule->name()) == NULL);
+  if (concurrent_) {
+    std::lock_guard<std::mutex> lock(concurrent_->mutex);
+    auto& entry = concurrent_->late_rules[rule->name()];
+    entry.first = std::move(rule);
+    entry.second = ++concurrent_->version;
+    concurrent_->num_late_rules.store(
+        static_cast<int>(concurrent_->late_rules.size()));
+    return;
+  }
   rules_[rule->name()] = std::move(rule);
 }
 
 const Rule* BindingEnv::LookupRuleCurrentScope(StringPiece rule_name) {
   auto i = rules_.find(rule_name);
-  if (i == rules_.end())
-    return NULL;
-  return i->second.get();
+  if (i != rules_.end())
+    return i->second.get();
+  if (concurrent_) {
+    // Only called on the owning thread, which sees all its additions.
+    std::lock_guard<std::mutex> lock(concurrent_->mutex);
+    auto late = concurrent_->late_rules.find(rule_name);
+    if (late != concurrent_->late_rules.end())
+      return late->second.first.get();
+  }
+  return NULL;
 }
 
 const Rule* BindingEnv::LookupRule(StringPiece rule_name) {
+  return LookupRuleAt(rule_name, INT_MAX);
+}
+
+const Rule* BindingEnv::LookupRuleAt(StringPiece rule_name, int snapshot) {
   auto i = rules_.find(rule_name);
   if (i != rules_.end())
     return i->second.get();
+  if (concurrent_ && concurrent_->num_late_rules.load() > 0) {
+    std::lock_guard<std::mutex> lock(concurrent_->mutex);
+    auto late = concurrent_->late_rules.find(rule_name);
+    // Rules that were added after the snapshot don't exist as far as the
+    // caller is concerned. (Rules never change.)
+    if (late != concurrent_->late_rules.end() &&
+        late->second.second <= snapshot) {
+      return late->second.first.get();
+    }
+  }
   if (parent_)
-    return parent_->LookupRule(rule_name);
+    return parent_->LookupRuleAt(rule_name, parent_snapshot_);
   return NULL;
+}
+
+void BindingEnv::BeginConcurrentAccess(std::atomic<bool>* conflict) {
+  assert(!concurrent_);
+  concurrent_.reset(new Concurrent);
+  concurrent_->conflict = conflict;
+  concurrent_->num_late_bindings.store(0);
+  concurrent_->num_late_rules.store(0);
+  concurrent_->version = 0;
+}
+
+void BindingEnv::EndConcurrentAccess(bool keep_additions) {
+  assert(concurrent_);
+  if (keep_additions) {
+    for (auto& binding : concurrent_->late_bindings)
+      bindings_[binding.first] = std::move(binding.second.value);
+    for (auto& rule : concurrent_->late_rules)
+      rules_[rule.first] = std::move(rule.second.first);
+  }
+  concurrent_.reset();
+  // Everything in parent_ is visible from now on.
+  parent_snapshot_ = INT_MAX;
+}
+
+int BindingEnv::version() const {
+  return concurrent_ ? concurrent_->version : 0;
 }
 
 void Rule::AddBinding(const string& key, const EvalString& val) {
@@ -98,12 +201,21 @@ std::string BindingEnv::LookupWithFallback(StringPiece var,
   const auto i = bindings_.find(var);
   if (i != bindings_.end())
     return i->second;
+  if (concurrent_ && concurrent_->num_late_bindings.load() > 0) {
+    // Only edges use this, on the thread that owns this scope.
+    std::lock_guard<std::mutex> lock(concurrent_->mutex);
+    const auto late = concurrent_->late_bindings.find(var);
+    if (late != concurrent_->late_bindings.end())
+      return late->second.value;
+  }
 
   if (eval)
     return eval->Evaluate(env);
 
-  if (parent_)
-    return parent_->LookupVariable(var);
+  if (parent_) {
+    bool found;
+    return parent_->LookupVariableAt(var, parent_snapshot_, &found);
+  }
 
   return "";
 }

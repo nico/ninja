@@ -386,6 +386,10 @@ else:
     if platform.is_mingw():
         cflags += ['-D_WIN32_WINNT=0x0601', '-D__USE_MINGW_ANSI_STDIO=1']
     ldflags = ['-L$builddir']
+    if not platform.is_windows():
+        # The manifest parser uses std::thread.
+        cflags.append('-pthread')
+        ldflags.append('-pthread')
     if platform.uses_usr_local():
         cflags.append('-I/usr/local/include')
         ldflags.append('-L/usr/local/lib')

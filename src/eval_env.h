@@ -15,9 +15,14 @@
 #ifndef NINJA_EVAL_ENV_H_
 #define NINJA_EVAL_ENV_H_
 
+#include <limits.h>
+
+#include <atomic>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "string_piece.h"
@@ -114,10 +119,71 @@ struct BindingEnv : public Env {
   std::string LookupWithFallback(StringPiece var, const EvalString* eval,
                                  Env* env);
 
+  /// Support for parsing manifests on several threads, where each file is
+  /// parsed by one thread but files loaded by `subninja` get parsed by other
+  /// threads, at the same time as the rest of the file containing the
+  /// `subninja`. The scopes of these files are children of this scope, so
+  /// they read this scope while the thread that owns it keeps adding to it.
+  ///
+  /// After BeginConcurrentAccess(), only the owning thread may call
+  /// AddBinding() and AddRule(). Additions are kept separate, so that child
+  /// scopes can read everything that existed before without synchronization.
+  /// Additions are versioned: a child scope created with a snapshot version
+  /// (see version()) only sees what existed when it was created, since
+  /// that's what it would have seen if everything was parsed on one thread.
+  /// Old values of bindings aren't kept. If a child looks up a binding that
+  /// it should see an old value of, or if a binding that existed before
+  /// BeginConcurrentAccess() gets overwritten, |*conflict| is set, and the
+  /// caller has to throw away all results and parse everything again on a
+  /// single thread.
+  void BeginConcurrentAccess(std::atomic<bool>* conflict);
+  /// Returns to normal operation. Keeps what was added since
+  /// BeginConcurrentAccess() if |keep_additions|, else discards it.
+  /// Must be called once no other threads access this scope anymore.
+  void EndConcurrentAccess(bool keep_additions);
+  /// The version of this scope: the number of additions since
+  /// BeginConcurrentAccess(). May only be called on the owning thread.
+  int version() const;
+  /// Creates a child scope of |parent| that was created at |parent|'s version
+  /// |parent_snapshot|.
+  BindingEnv(BindingEnv* parent, int parent_snapshot)
+      : parent_(parent), parent_snapshot_(parent_snapshot) {}
+
 private:
+  /// State for concurrent access, see BeginConcurrentAccess().
+  struct Concurrent {
+    std::atomic<bool>* conflict;
+    /// Protects late_bindings and late_rules, except for reads on the owning
+    /// thread (which is the only thread that writes).
+    std::mutex mutex;
+    struct LateBinding {
+      std::string value;
+      int first_version = 0;  // When the binding was added.
+      int version = 0;        // When it was set to |value|.
+    };
+    std::map<std::string, LateBinding, StringPieceLess> late_bindings;
+    std::map<std::string, std::pair<std::unique_ptr<const Rule>, int>,
+             StringPieceLess> late_rules;
+    /// Sizes of the maps above, to skip locking while they are empty.
+    std::atomic<int> num_late_bindings;
+    std::atomic<int> num_late_rules;
+    int version;
+  };
+
+  /// Lookups on behalf of a child scope that was created at |snapshot|.
+  /// |found| is set to false if the variable isn't set in this scope or its
+  /// parents.
+  std::string LookupVariableAt(StringPiece var, int snapshot, bool* found);
+  const Rule* LookupRuleAt(StringPiece rule_name, int snapshot);
+
   std::map<std::string, std::string, StringPieceLess> bindings_;
   std::map<std::string, std::unique_ptr<const Rule>, StringPieceLess> rules_;
   BindingEnv* parent_;
+  /// The version of parent_ at which this scope was created, if it was created
+  /// for use on a different thread than parent_'s. Scopes used on the same
+  /// thread as their parent can only look up things after they were added.
+  int parent_snapshot_ = INT_MAX;
+  std::unique_ptr<Concurrent> concurrent_;
 };
 
 #endif  // NINJA_EVAL_ENV_H_

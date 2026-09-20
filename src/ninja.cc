@@ -1467,6 +1467,7 @@ bool DebugEnable(const string& name) {
 "  explain      explain what caused a command to execute\n"
 "  keepdepfile  don't delete depfiles after they're read by ninja\n"
 "  keeprsp      don't delete @response files on success\n"
+"  serialparse  parse manifests on a single thread\n"
 #ifdef _WIN32
 "  nostatcache  don't batch stat() calls per directory and cache them\n"
 #endif
@@ -1484,6 +1485,9 @@ bool DebugEnable(const string& name) {
   } else if (name == "keeprsp") {
     g_keep_rsp = true;
     return true;
+  } else if (name == "serialparse") {
+    g_serial_parse = true;
+    return true;
   } else if (name == "nostatcache") {
     g_experimental_statcache = false;
     return true;
@@ -1491,7 +1495,7 @@ bool DebugEnable(const string& name) {
     const char* suggestion =
         SpellcheckString(name.c_str(),
                          "stats", "explain", "keepdepfile", "keeprsp",
-                         "nostatcache", NULL);
+                         "serialparse", "nostatcache", NULL);
     if (suggestion) {
       Error("unknown debug setting '%s', did you mean '%s'?",
             name.c_str(), suggestion);
@@ -1995,6 +1999,11 @@ NORETURN void real_main(int argc, char** argv) {
     if (options.phony_cycle_should_err) {
       parser_opts.phony_cycle_action_ = kPhonyCycleActionError;
     }
+    // More threads than this don't help, and on some systems they make
+    // things slower because opening many files at the same time doesn't scale.
+    const int kMaxParseThreads = 8;
+    parser_opts.parse_threads_ =
+        g_serial_parse ? 1 : std::min(GetProcessorCount(), kMaxParseThreads);
     ManifestParser parser(&ninja.state_, &ninja.disk_interface_, parser_opts);
     string err;
     if (!parser.Load(options.input_file, &err)) {

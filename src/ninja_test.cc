@@ -12,9 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stdlib.h>
+
 #include <gtest/gtest.h>
+
+#include "manifest_parser.h"
 
 int main(int argc, char **argv) {
   testing::InitGoogleTest(&argc, argv);
+  // Runs all tests that parse manifests with that many threads. The results
+  // have to be the same as with one thread.
+  if (const char* parse_threads = getenv("NINJA_TEST_PARSE_THREADS"))
+    ManifestParserOptions::default_parse_threads_ = atoi(parse_threads);
   return RUN_ALL_TESTS();
 }

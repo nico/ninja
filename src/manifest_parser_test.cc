@@ -1198,3 +1198,315 @@ TEST_F(ManifestParserTest, LookupVariable) {
   ASSERT_EQ(parser.LookupVariable("bar"), "Hello World");
   ASSERT_EQ(parser.LookupVariable("zoo"), "");
 }
+
+/// Parses manifests with one thread and with several threads, and checks that
+/// the results are the same.
+struct ParallelParserTest : public testing::Test {
+  /// Everything about |state| that the rest of ninja can observe.
+  static string Describe(const State& state) {
+    string result;
+    char buf[32];
+    for (const Edge* edge : state.edges_) {
+      snprintf(buf, sizeof(buf), "edge %d", static_cast<int>(edge->id_));
+      result += buf;
+      result += " rule=" + edge->rule().name() + " pool=" +
+                edge->pool()->name() + "\n  outputs:";
+      for (const Node* node : edge->outputs_)
+        result += " " + node->path();
+      snprintf(buf, sizeof(buf), " (%d implicit)", edge->implicit_outs_);
+      result += buf;
+      result += "\n  inputs:";
+      for (const Node* node : edge->inputs_)
+        result += " " + node->path();
+      snprintf(buf, sizeof(buf), " (%d implicit, %d order-only)",
+               edge->implicit_deps_, edge->order_only_deps_);
+      result += buf;
+      result += "\n  validations:";
+      for (const Node* node : edge->validations_)
+        result += " " + node->path();
+      result += "\n  dyndep: ";
+      result += edge->dyndep_ ? edge->dyndep_->path() : "-";
+      result += "\n  command: " + edge->EvaluateCommand() + "\n";
+      result += "  description: " + edge->GetBinding("description") + "\n";
+    }
+    // The order of the nodes is observable too (e.g. in `ninja -t targets`).
+    for (State::Paths::const_iterator i = state.paths_.begin();
+         i != state.paths_.end(); ++i) {
+      const Node* node = i->second;
+      EXPECT_EQ(i->first.AsString(), node->path());
+      result += "node " + node->path();
+      snprintf(buf, sizeof(buf), " in_edge=%d",
+               node->in_edge() ? static_cast<int>(node->in_edge()->id_) : -1);
+      result += buf;
+      result += " out_edges=";
+      for (const Edge* edge : node->out_edges()) {
+        snprintf(buf, sizeof(buf), "%d,", static_cast<int>(edge->id_));
+        result += buf;
+      }
+      result += " validation_out_edges=";
+      for (const Edge* edge : node->validation_out_edges()) {
+        snprintf(buf, sizeof(buf), "%d,", static_cast<int>(edge->id_));
+        result += buf;
+      }
+      result += node->generated_by_dep_loader() ? " deploader" : "";
+      result += node->dyndep_pending() ? " dyndep_pending" : "";
+      snprintf(buf, sizeof(buf), " slash_bits=%d\n",
+               static_cast<int>(node->slash_bits()));
+      result += buf;
+    }
+    string err;
+    result += "defaults:";
+    for (const Node* node : state.DefaultNodes(&err))
+      result += " " + node->path();
+    result += "\nrules:";
+    for (const auto& rule : state.bindings_.GetRules())
+      result += " " + rule.first;
+    result += "\npools:";
+    for (const auto& pool : state.pools_) {
+      snprintf(buf, sizeof(buf), "=%d", pool.second->depth());
+      result += " " + pool.first + buf;
+    }
+    return result + "\n";
+  }
+
+  enum ExpectedMode { kParallel, kStartsOver };
+
+  /// Returns the error message of parsing |input|.
+  string Parse(const char* input, ExpectedMode expected_mode,
+               ManifestParserOptions options = ManifestParserOptions()) {
+    string results[2];
+    string errors[2];
+    const int kThreads[2] = { 1, 8 };
+    for (int i = 0; i < 2; ++i) {
+      State state;
+      options.parse_threads_ = kThreads[i];
+      ManifestParser parser(&state, &fs_, options);
+      bool ok = parser.ParseTest(input, &errors[i]);
+      EXPECT_EQ(ok, errors[i].empty());
+      if (ok)
+        VerifyGraph(state);
+      results[i] = Describe(state);
+      results[i] += "var=" + state.bindings_.LookupVariable("var") + "\n";
+      if (i == 1)
+        EXPECT_EQ(expected_mode == kParallel, parser.parsed_in_parallel());
+      else
+        EXPECT_FALSE(parser.parsed_in_parallel());
+    }
+    EXPECT_EQ(results[0], results[1]);
+    EXPECT_EQ(errors[0], errors[1]);
+    EXPECT_FALSE(results[0].empty());
+    return errors[0];
+  }
+
+  VirtualFileSystem fs_;
+};
+
+TEST_F(ParallelParserTest, Subninjas) {
+  fs_.Create("a.ninja",
+"var = a\n"
+"rule cc\n"
+"  command = a-cc $in $out $var\n"
+"  description = A $out\n"
+"build a.o | a.extra: cc a.c | a.h in/../shared.h || gen |@ check\n"
+"build dir/a2.o: cat a2.c $var.c\n"
+"  var = a-on-edge\n"
+"subninja nested.ninja\n"
+"build a3.o: cc a3.c\n");
+  fs_.Create("nested.ninja",
+"build nested.o: cc nested.c shared.h\n"
+"include included.ninja\n"
+"build nested2.o: cat $included_var\n");
+  fs_.Create("included.ninja",
+"included_var = from-include\n"
+"build included.o: cat included.c\n");
+  fs_.Create("b.ninja",
+"build b.o: cat b.c shared.h || gen\n"
+"  pool = small\n"
+"build gen: cat $var.in\n"
+"build check: phony\n"
+"default b.o\n");
+  EXPECT_EQ("", Parse(
+"var = outer\n"
+"pool small\n"
+"  depth = 2\n"
+"rule cat\n"
+"  command = cat $in > $out # $var\n"
+"rule cc\n"
+"  command = cc $in $out\n"
+"build first: cat shared.h\n"
+"subninja a.ninja\n"
+"rule late\n"
+"  command = late $in $out\n"
+"build middle: late a.o first\n"
+"subninja b.ninja\n"
+"later_var = x\n"
+"build last: cat middle b.o nested.o included.o $later_var\n"
+"default last middle\n", kParallel));
+}
+
+TEST_F(ParallelParserTest, ManySubninjas) {
+  string manifest =
+"rule cat\n"
+"  command = cat $in > $out\n";
+  for (int i = 0; i < 200; ++i) {
+    string n = std::to_string(i);
+    string contents =
+"rule own" + n + "\n"
+"  command = own" + n + " $in $out\n";
+    for (int j = 0; j < 20; ++j) {
+      string m = std::to_string(j);
+      contents += "build out" + n + "_" + m + ": " + (j % 2 ? "cat" : "own" + n) +
+                  " shared" + m + " in" + n + "_" + m +
+                  (i > 0 ? " out" + std::to_string(i - 1) + "_" + m : "") +
+                  "\n";
+    }
+    fs_.Create("sub" + n + ".ninja", contents);
+    manifest += "subninja sub" + n + ".ninja\n";
+    manifest += "rule root" + n + "\n  command = root" + n + " $in $out\n";
+    manifest += "build root_out" + n + ": root" + n + " out" + n + "_0\n";
+  }
+  EXPECT_EQ("", Parse(manifest.c_str(), kParallel));
+}
+
+TEST_F(ParallelParserTest, Dyndep) {
+  fs_.Create("sub.ninja",
+"build out: cat in || dd\n"
+"  dyndep = dd\n");
+  EXPECT_EQ("", Parse(
+"rule cat\n"
+"  command = cat $in > $out\n"
+"subninja sub.ninja\n", kParallel));
+}
+
+TEST_F(ParallelParserTest, ErrorsStartOver) {
+  // Every error makes parsing start over on a single thread, so that they
+  // are reported the same way.
+  fs_.Create("syntax.ninja", "build out: cat in\nbuild\n");
+  EXPECT_EQ("syntax.ninja:2: expected path\n"
+            "build\n"
+            "     ^ near here",
+            Parse("rule cat\n  command = cat\nsubninja syntax.ninja\n",
+                  kStartsOver));
+
+  EXPECT_EQ("input:3: loading 'missing.ninja': No such file or directory\n"
+            "subninja missing.ninja\n"
+            "                      ^ near here",
+            Parse("rule cat\n  command = cat\nsubninja missing.ninja\n",
+                  kStartsOver));
+
+  fs_.Create("out.ninja", "build out: cat in\n");
+  fs_.Create("out2.ninja", "build out2: cat in\nbuild out: cat in2\n");
+  EXPECT_EQ("out2.ninja:3: multiple rules generate out\n",
+            Parse("rule cat\n  command = cat\n"
+                  "subninja out.ninja\nsubninja out2.ninja\n", kStartsOver));
+
+  fs_.Create("twice.ninja", "build twice twice: cat in\n");
+  EXPECT_EQ("twice.ninja:2: twice is defined as an output multiple times\n",
+            Parse("rule cat\n  command = cat\nsubninja twice.ninja\n",
+                  kStartsOver));
+
+  fs_.Create("pool.ninja", "build out: cat in\n  pool = nonexistent\n");
+  EXPECT_EQ("pool.ninja:3: unknown pool name 'nonexistent'\n",
+            Parse("rule cat\n  command = cat\nsubninja pool.ninja\n",
+                  kStartsOver));
+
+  EXPECT_EQ("input:5: unknown target 'nonexistent'\n"
+            "default nonexistent\n"
+            "                   ^ near here",
+            Parse("rule cat\n  command = cat\nsubninja out.ninja\n"
+                  "default out\ndefault nonexistent\n", kStartsOver));
+
+  fs_.Create("dyndep.ninja", "build out: cat in\n  dyndep = dd\n");
+  EXPECT_EQ("dyndep.ninja:3: dyndep 'dd' is not an input\n",
+            Parse("rule cat\n  command = cat\nsubninja dyndep.ninja\n",
+                  kStartsOver));
+}
+
+TEST_F(ParallelParserTest, SubninjaSeesParentScopeAsOfSubninjaLine) {
+  // A file loaded by subninja sees the rules and variables that are set before
+  // the subninja line. If it uses something that gets set after that line,
+  // parsing has to start over, no matter which thread happens to be faster.
+  fs_.Create("uses_rule.ninja", "build out: late in\n");
+  EXPECT_EQ("uses_rule.ninja:1: unknown build rule 'late'\n"
+            "build out: late in\n"
+            "           ^ near here",
+            Parse("subninja uses_rule.ninja\n"
+                  "rule late\n  command = late\n", kStartsOver));
+
+  // Same, if there's a rule with that name in an outer scope.
+  fs_.Create("outer.ninja",
+"subninja uses_rule.ninja\n"
+"rule late\n"
+"  command = inner late\n");
+  EXPECT_EQ("", Parse("rule late\n  command = outer late\n"
+                      "subninja outer.ninja\n", kParallel));
+
+  // Rules that the file doesn't use don't matter.
+  fs_.Create("uses_cat.ninja", "build out: cat in\n");
+  EXPECT_EQ("", Parse("rule cat\n  command = cat\n"
+                      "subninja uses_cat.ninja\n"
+                      "rule late\n  command = late\n", kParallel));
+}
+
+TEST_F(ParallelParserTest, VariableSetAfterSubninja) {
+  // The path is evaluated while parsing, the command when it's needed.
+  fs_.Create("uses_var.ninja", "build out$var: cat in\n");
+  for (int i = 0; i < 20; ++i) {
+    State state;
+    ManifestParserOptions options;
+    options.parse_threads_ = 4;
+    ManifestParser parser(&state, &fs_, options);
+    string err;
+    EXPECT_TRUE(parser.ParseTest(
+"rule cat\n"
+"  command = cat $var\n"
+"var = 1\n"
+"subninja uses_var.ninja\n"
+"var = 2\n", &err));
+    EXPECT_EQ("", err);
+    ASSERT_EQ(1u, state.edges_.size());
+    EXPECT_EQ("out1", state.edges_[0]->outputs_[0]->path());
+    EXPECT_EQ("cat 2", state.edges_[0]->EvaluateCommand());
+  }
+}
+
+TEST_F(ParallelParserTest, PoolAfterSubninja) {
+  fs_.Create("sub.ninja", "build out: cat in\n");
+  EXPECT_EQ("", Parse(
+"rule cat\n"
+"  command = cat\n"
+"subninja sub.ninja\n"
+"pool late\n"
+"  depth = 1\n"
+"build out2: cat in\n"
+"  pool = late\n", kStartsOver));
+}
+
+TEST_F(ParallelParserTest, PhonyCycle) {
+  fs_.Create("sub.ninja", "build out: cat in\n");
+  const char kManifest[] =
+"rule cat\n"
+"  command = cat\n"
+"subninja sub.ninja\n"
+"build a: phony a\n";
+  // Removing the input prints a warning, leave that to the normal parser.
+  EXPECT_EQ("", Parse(kManifest, kStartsOver));
+  ManifestParserOptions options;
+  options.phony_cycle_action_ = kPhonyCycleActionError;
+  EXPECT_EQ("", Parse(kManifest, kParallel, options));
+}
+
+TEST_F(ParallelParserTest, NonEmptyState) {
+  // Parsing into a State that has nodes already isn't done in parallel.
+  fs_.Create("sub.ninja", "build out: cat in\n");
+  State state;
+  state.GetNode("in", 0);
+  ManifestParserOptions options;
+  options.parse_threads_ = 4;
+  ManifestParser parser(&state, &fs_, options);
+  string err;
+  EXPECT_TRUE(parser.ParseTest("rule cat\n  command = cat\n"
+                               "subninja sub.ninja\n", &err));
+  EXPECT_FALSE(parser.parsed_in_parallel());
+  EXPECT_EQ(1u, state.edges_.size());
+}
