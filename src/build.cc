@@ -860,11 +860,17 @@ bool Builder::StartEdge(Edge* edge, string* err) {
 
   TimeStamp build_start = config_.dry_run ? 0 : -1;
 
+  // A dry run doesn't run commands, so it has no need for output directories
+  // or response files. The exception is `-n -d keeprsp`, which is a useful way
+  // to create all response files (and the directories they are in) without
+  // building anything.
+  const bool skip_disk_writes = config_.dry_run && !g_keep_rsp;
+
   // Create directories necessary for outputs and remember the current
   // filesystem mtime to record later
   // XXX: this will block; do we care?
   for (vector<Node*>::iterator o = edge->outputs_.begin();
-       o != edge->outputs_.end(); ++o) {
+       o != edge->outputs_.end() && !skip_disk_writes; ++o) {
     if (!disk_interface_->MakeDirs((*o)->path()))
       return false;
     if (build_start == -1) {
@@ -884,13 +890,15 @@ bool Builder::StartEdge(Edge* edge, string* err) {
 
   // Create depfile directory if needed.
   // XXX: this may also block; do we care?
-  std::string depfile = edge->GetUnescapedDepfile();
-  if (!depfile.empty() && !disk_interface_->MakeDirs(depfile))
-    return false;
+  if (!skip_disk_writes) {
+    std::string depfile = edge->GetUnescapedDepfile();
+    if (!depfile.empty() && !disk_interface_->MakeDirs(depfile))
+      return false;
+  }
 
   // Create response file, if needed
   // XXX: this may also block; do we care?
-  string rspfile = edge->GetUnescapedRspfile();
+  string rspfile = skip_disk_writes ? "" : edge->GetUnescapedRspfile();
   if (!rspfile.empty()) {
     string content = edge->GetBinding("rspfile_content");
     if (!disk_interface_->WriteFile(rspfile, content, true))
@@ -985,10 +993,13 @@ bool Builder::FinishCommand(BuildResult::CommandCompleted& result,
   if (!plan_.EdgeFinished(edge, Plan::kEdgeSucceeded, err))
     return false;
 
-  // Delete any left over response file.
-  string rspfile = edge->GetUnescapedRspfile();
-  if (!rspfile.empty() && !g_keep_rsp)
-    disk_interface_->RemoveFile(rspfile);
+  // Delete any left over response file. Dry runs don't write any, see
+  // StartEdge().
+  if (!g_keep_rsp && !config_.dry_run) {
+    string rspfile = edge->GetUnescapedRspfile();
+    if (!rspfile.empty())
+      disk_interface_->RemoveFile(rspfile);
+  }
 
   if (scan_.build_log()) {
     if (!scan_.build_log()->RecordCommand(
