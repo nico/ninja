@@ -593,6 +593,16 @@ yy65:
   return true;
 }
 
+// ReadSimplePath() is where most of the time for lexing is spent, since most
+// of a manifest consists of paths. It can look at 16 bytes at a time.
+#if defined(__GNUC__) && defined(__aarch64__)
+#define NINJA_LEXER_NEON
+#include <arm_neon.h>
+#elif defined(__GNUC__) && defined(__SSE2__)
+#define NINJA_LEXER_SSE2
+#include <emmintrin.h>
+#endif
+
 bool Lexer::ReadSimplePath(StringPiece* path, bool* is_canonical) {
   // Bit 0: character ends a simple path, see ReadEvalString().
   // Bit 1: character makes a path non-canonical at the start of a component.
@@ -623,6 +633,78 @@ bool Lexer::ReadSimplePath(StringPiece* path, bool* is_canonical) {
   // rejects a few canonical paths (e.g. "foo/.bar"), which is fine.
   unsigned non_canonical = 0;
   unsigned component_start = 2;
+
+#if defined(NINJA_LEXER_NEON) || defined(NINJA_LEXER_SSE2)
+  // Look at 16 bytes at a time, as long as there are 16 bytes of input left.
+  // Computes the same thing as the loop below, which handles the rest.
+  const char* const input_end = input_.str_ + input_.len_;
+  while (input_end - p >= 16) {
+    // Each mask has kBitsPerByte bits per input byte, lowest byte first:
+    // |terminators| for bytes with bit 0 set in kCharClass, |bad_starts| for
+    // bytes with bit 1 set, |slashes| for '/'.
+    uint64_t terminators, bad_starts, slashes;
+#if defined(NINJA_LEXER_NEON)
+    const int kBitsPerByte = 4;
+    const uint8x16_t v = vld1q_u8(reinterpret_cast<const uint8_t*>(p));
+    #define NINJA_EQ(c) vceqq_u8(v, vdupq_n_u8(c))
+    #define NINJA_MASK(x) vget_lane_u64(vreinterpret_u64_u8( \
+        vshrn_n_u16(vreinterpretq_u16_u8(x), 4)), 0)
+    const uint8x16_t slash = NINJA_EQ('/');
+    terminators = NINJA_MASK(vorrq_u8(
+        vorrq_u8(vorrq_u8(NINJA_EQ('\0'), NINJA_EQ('\n')),
+                 vorrq_u8(NINJA_EQ('\r'), NINJA_EQ(' '))),
+        vorrq_u8(vorrq_u8(NINJA_EQ('$'), NINJA_EQ(':')), NINJA_EQ('|'))));
+#ifdef _WIN32
+    // Backslashes need slash_bits, treat them like a bad start everywhere.
+    const uint64_t backslashes = NINJA_MASK(NINJA_EQ('\\'));
+#endif
+    bad_starts = NINJA_MASK(vorrq_u8(slash, NINJA_EQ('.')));
+    slashes = NINJA_MASK(slash);
+#else
+    const int kBitsPerByte = 1;
+    const __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(p));
+    #define NINJA_EQ(c) _mm_cmpeq_epi8(v, _mm_set1_epi8(c))
+    #define NINJA_MASK(x) static_cast<uint64_t>(_mm_movemask_epi8(x))
+    const __m128i slash = NINJA_EQ('/');
+    terminators = NINJA_MASK(_mm_or_si128(
+        _mm_or_si128(_mm_or_si128(NINJA_EQ('\0'), NINJA_EQ('\n')),
+                     _mm_or_si128(NINJA_EQ('\r'), NINJA_EQ(' '))),
+        _mm_or_si128(_mm_or_si128(NINJA_EQ('$'), NINJA_EQ(':')),
+                     NINJA_EQ('|'))));
+#ifdef _WIN32
+    const uint64_t backslashes = NINJA_MASK(NINJA_EQ('\\'));
+#endif
+    bad_starts = NINJA_MASK(_mm_or_si128(slash, NINJA_EQ('.')));
+    slashes = NINJA_MASK(slash);
+#endif
+    #undef NINJA_EQ
+    #undef NINJA_MASK
+
+    // A byte is at the start of a component if the byte before it is a slash
+    // (or if it's the first byte and the previous block says so).
+    const uint64_t kFirstByte = (uint64_t(1) << kBitsPerByte) - 1;
+    uint64_t component_starts =
+        (slashes << kBitsPerByte) | (component_start ? kFirstByte : 0);
+    uint64_t non_canonicals = bad_starts & component_starts;
+#ifdef _WIN32
+    non_canonicals |= backslashes;
+#endif
+    if (terminators) {
+      // Only the bytes before the first terminator count.
+      int num_bits = __builtin_ctzll(terminators);
+      non_canonicals &= (uint64_t(1) << num_bits) - 1;
+      if (non_canonicals)
+        non_canonical = 2;
+      p += num_bits / kBitsPerByte;
+      break;
+    }
+    if (non_canonicals)
+      non_canonical = 2;
+    component_start = p[15] == '/' ? 2 : 0;
+    p += 16;
+  }
+#endif
+
   unsigned char c;
   while (!((c = kCharClass[static_cast<unsigned char>(*p)]) & 1)) {
     non_canonical |= c & component_start;

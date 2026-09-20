@@ -106,7 +106,9 @@ TEST(Lexer, ReadSimplePathCanonical) {
                 kComponents[i / n / n / n];
     // Also test paths with fewer components and without trailing slashes.
     while (!in.empty()) {
-      Lexer lexer((in + "\n").c_str());
+      // Lexer doesn't copy its input.
+      string input = in + "\n";
+      Lexer lexer(input.c_str());
       StringPiece path;
       bool is_canonical = false;
       EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
@@ -119,10 +121,68 @@ TEST(Lexer, ReadSimplePathCanonical) {
         EXPECT_EQ(0u, slash_bits);
         ++num_canonical;
       }
+
+      // ReadSimplePath() looks at 16 bytes at a time while there's enough
+      // input left. Put the path at different offsets after a directory name,
+      // so that everything ends up at all positions in these blocks, and
+      // compare with the result for the same path at the end of the input,
+      // where it's handled byte by byte.
+      const size_t kPrefixLengths[] = { 1, 2, 5, 9, 12, 13, 14, 15, 16, 17,
+                                        29, 30, 31, 32 };
+      for (size_t prefix_length : kPrefixLengths) {
+        string long_in = string(prefix_length, 'x') + "/" + in;
+        string short_input = long_in + "\n";
+        Lexer short_lexer(short_input.c_str());
+        bool short_is_canonical = false;
+        EXPECT_TRUE(short_lexer.ReadSimplePath(&path, &short_is_canonical));
+        EXPECT_EQ(long_in, path.AsString());
+
+        string padded = long_in + " next/path/that/is/longer/than/16/bytes\n";
+        Lexer long_lexer(padded.c_str());
+        bool long_is_canonical = false;
+        EXPECT_TRUE(long_lexer.ReadSimplePath(&path, &long_is_canonical));
+        EXPECT_EQ(long_in, path.AsString());
+        EXPECT_EQ(short_is_canonical, long_is_canonical) << long_in;
+        if (long_is_canonical) {
+          string canonical = long_in;
+          uint64_t slash_bits;
+          CanonicalizePath(&canonical, &slash_bits);
+          EXPECT_EQ(long_in, canonical);
+        }
+        // The next path is read correctly too.
+        EXPECT_TRUE(long_lexer.ReadSimplePath(&path, &long_is_canonical));
+        EXPECT_EQ("next/path/that/is/longer/than/16/bytes", path.AsString());
+        EXPECT_TRUE(long_is_canonical);
+      }
       in.resize(in.size() - 1);
     }
   }
   EXPECT_GT(num_canonical, 100);
+
+  // All terminators, at all positions of a block.
+  const char kTerminators[] = { ' ', ':', '|', '\n' };
+  for (size_t length = 1; length < 40; ++length) {
+    for (char terminator : kTerminators) {
+      string in = string(length, 'y');
+      string input = in + terminator + "rest/of/the/input/with/enough/bytes\n";
+      Lexer lexer(input.c_str());
+      StringPiece path;
+      bool is_canonical = false;
+      EXPECT_TRUE(lexer.ReadSimplePath(&path, &is_canonical));
+      EXPECT_EQ(in, path.AsString());
+      EXPECT_TRUE(is_canonical);
+    }
+    // These are left to ReadPath().
+    const char* kNotSimple[] = { "$", "\r" };
+    for (const char* not_simple : kNotSimple) {
+      string input = string(length, 'y') + not_simple +
+                     "rest/of/the/input/with/enough/bytes\n";
+      Lexer lexer(input.c_str());
+      StringPiece path;
+      bool is_canonical = false;
+      EXPECT_FALSE(lexer.ReadSimplePath(&path, &is_canonical));
+    }
+  }
 
   Lexer lexer("a/b a/b/ a//b ./a a/./b a/../b ../../a ../a/../b / .. .\n");
   const bool kExpected[] = { true, false, false, false, false, false, true,
