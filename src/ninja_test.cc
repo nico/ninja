@@ -24,5 +24,8 @@ int main(int argc, char **argv) {
   // have to be the same as with one thread.
   if (const char* parse_threads = getenv("NINJA_TEST_PARSE_THREADS"))
     ManifestParserOptions::default_parse_threads_ = atoi(parse_threads);
+  // Additionally splits files of at least that many bytes into chunks.
+  if (const char* size = getenv("NINJA_TEST_MIN_CHUNKED_FILE_SIZE"))
+    ManifestParserOptions::default_min_chunked_file_size_ = atoi(size);
   return RUN_ALL_TESTS();
 }

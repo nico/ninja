@@ -1274,12 +1274,17 @@ struct ParallelParserTest : public testing::Test {
   /// Returns the error message of parsing |input|.
   string Parse(const char* input, ExpectedMode expected_mode,
                ManifestParserOptions options = ManifestParserOptions()) {
-    string results[2];
-    string errors[2];
-    const int kThreads[2] = { 1, 8 };
-    for (int i = 0; i < 2; ++i) {
+    // One thread, several threads, and several threads where every file is
+    // split into chunks that are parsed by several threads.
+    const int kNumConfigs = 3;
+    string results[kNumConfigs];
+    string errors[kNumConfigs];
+    const int kThreads[kNumConfigs] = { 1, 8, 3 };
+    const size_t kMinChunkedFileSize[kNumConfigs] = { 1 << 20, 1 << 20, 0 };
+    for (int i = 0; i < kNumConfigs; ++i) {
       State state;
       options.parse_threads_ = kThreads[i];
+      options.min_chunked_file_size_ = kMinChunkedFileSize[i];
       ManifestParser parser(&state, &fs_, options);
       bool ok = parser.ParseTest(input, &errors[i]);
       EXPECT_EQ(ok, errors[i].empty());
@@ -1287,13 +1292,15 @@ struct ParallelParserTest : public testing::Test {
         VerifyGraph(state);
       results[i] = Describe(state);
       results[i] += "var=" + state.bindings_.LookupVariable("var") + "\n";
-      if (i == 1)
+      if (i > 0)
         EXPECT_EQ(expected_mode == kParallel, parser.parsed_in_parallel());
       else
         EXPECT_FALSE(parser.parsed_in_parallel());
     }
-    EXPECT_EQ(results[0], results[1]);
-    EXPECT_EQ(errors[0], errors[1]);
+    for (int i = 1; i < kNumConfigs; ++i) {
+      EXPECT_EQ(results[0], results[i]);
+      EXPECT_EQ(errors[0], errors[i]);
+    }
     EXPECT_FALSE(results[0].empty());
     return errors[0];
   }
@@ -1510,3 +1517,63 @@ TEST_F(ParallelParserTest, NonEmptyState) {
   EXPECT_FALSE(parser.parsed_in_parallel());
   EXPECT_EQ(1u, state.edges_.size());
 }
+
+TEST_F(ParallelParserTest, ChunkBoundaries) {
+  // Chunks may only start at the start of a statement: not at indented lines,
+  // not after line continuations, but after an escaped dollar sign at the end
+  // of a line.
+  fs_.Create("sub.ninja", "build sub: cat in\n");
+  fs_.Create("sub2.ninja", "build sub2: cat in\nrule r2\n  command = r2\n");
+  EXPECT_EQ("", Parse(
+"# comment\n"
+"rule cat\n"
+"  command = cat $in $\n"
+"$out\n"
+"  description = dollar $$\n"
+"\n"
+"pool p\n"
+"  depth = 3\n"
+"var = a $\n"
+"b\n"
+"build out1 $\n"
+"out2: $\n"
+"cat in1 $\n"
+"  in2\n"
+"  pool = p\n"
+"  extra = $$\n"
+"build out3$$: cat in3$$\n"
+"build out4: cat $var/in4 | out1 || out3$$ |@ out2\n"
+"\n"
+"# comment\n"
+"subninja sub.ninja\n"
+"include sub2.ninja\n"
+"default out1 $\n"
+"  out4\n"
+"default sub\r\n"
+"build crlf: cat in5 $\r\n"
+"in6\r\n", kParallel));
+  EXPECT_EQ("", Parse(
+"rule cat\n"
+"  command = cat $in $\n"
+"$out\n"
+"  description = dollar $$\n"
+"pool p\n"
+"  depth = 3\n"
+"var = a $\n"
+"b\n"
+"build out1 $\n"
+"out2: $\n"
+"cat in1 $\n"
+"  in2\n"
+"  pool = p\n"
+"  extra = $$\n"
+"build out3$$: cat in3$$\n"
+"build out4: cat $var/in4 | out1 || out3$$ |@ out2\n"
+"subninja sub.ninja\n"
+"include sub2.ninja\n"
+"build out5: r2 sub2\n"
+"default out1 $\n"
+"  out4\n"
+"default sub\n", kParallel));
+}
+

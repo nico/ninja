@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "string_piece.h"
@@ -26,6 +27,7 @@
 struct BindingEnv;
 struct Env;
 struct EvalString;
+struct Node;
 struct Rule;
 
 enum DupeEdgeAction {
@@ -44,9 +46,14 @@ struct ManifestParserOptions {
   /// files loaded by `subninja` are parsed on other threads. The result is
   /// the same as with one thread.
   int parse_threads_ = default_parse_threads_;
+  /// When parsing with several threads, files at least this big are split
+  /// into chunks that are parsed by several threads. This has to be big
+  /// enough for that to be worth the overhead.
+  size_t min_chunked_file_size_ = default_min_chunked_file_size_;
 
-  /// 1, except if tests change it to run with several threads.
+  /// Tests change these to run all tests with several threads.
   static int default_parse_threads_;
+  static size_t default_min_chunked_file_size_;
 };
 
 /// Parses .ninja files.
@@ -71,8 +78,20 @@ struct ManifestParser : public Parser {
   bool parsed_in_parallel() const { return parsed_in_parallel_; }
 
  private:
+  struct ChunkedFile;
+  struct LexedStatement;
   struct ParallelParse;
   struct ParsedFile;
+
+  /// A path in a build statement. Most paths contain no $-escapes; those
+  /// are kept as a StringPiece into the lexer's input instead of as an
+  /// EvalString, which is much cheaper.
+  struct EdgePath {
+    StringPiece plain_;   // Only valid if eval_index_ < 0.
+    int eval_index_;      // Index into evals_, or -1.
+    bool is_canonical_;   // Only valid if eval_index_ < 0.
+    Node* node_;          // Set if the path has been resolved already.
+  };
 
   /// Parse a file, given its contents as a string.
   bool Parse(const std::string& filename, const std::string& input,
@@ -99,8 +118,32 @@ struct ManifestParser : public Parser {
   /// Parses |path| on a thread of parallel_, with a new scope below |parent|.
   void ParseFileTask(const std::string& path, BindingEnv* parent,
                      int parent_snapshot, ParsedFile* parsed_file);
-  bool ParseEdgeParallel(const Rule* rule, BindingEnv* env, int implicit_outs,
-                         int implicit, int order_only, std::string* err);
+  bool ParseEdgeParallel(const Rule* rule, BindingEnv* env,
+                         const std::vector<EdgePath>& outs,
+                         const std::vector<EdgePath>& ins,
+                         const std::vector<EdgePath>& validations,
+                         const std::vector<EvalString>& evals,
+                         int implicit_outs, int implicit, int order_only,
+                         std::string* err);
+  /// Posts a task that parses the subninja file |path| on another thread.
+  void PostSubninjaTask(const std::string& path);
+  /// Parses the included file |path| on this thread, in the current scope.
+  bool LoadInclude(const std::string& path, bool new_scope, std::string* err);
+
+  /// Parsing a single big file on several threads, as part of ParseParallel().
+  /// The file is split into chunks at statement boundaries. Several threads
+  /// turn the chunks into LexedStatements. That is most of the work, and it
+  /// doesn't depend on scopes. The calling thread then goes through the
+  /// statements in order and does everything that does.
+  bool ParseStatementsChunked(const std::string& filename,
+                              const std::string& input);
+  /// Lexes |chunk|, which has to consist of complete statements.
+  bool LexChunk(const std::string& filename, const std::string& chunk,
+                std::vector<LexedStatement>* statements);
+  bool LexBindings(
+      std::vector<std::pair<std::string, EvalString> >* bindings);
+  bool LexEdgePaths(std::vector<EdgePath>* paths, LexedStatement* statement);
+  bool ApplyLexedStatement(LexedStatement* statement);
   /// Adds everything in |parsed_file| to state_.
   bool CommitParsedFile(const ParsedFile& parsed_file);
   /// Makes env_ safe for use by other threads, if it isn't already.
@@ -130,21 +173,13 @@ struct ManifestParser : public Parser {
   /// True for parsers created by other parsers for subninja and include.
   bool is_subparser_ = false;
 
-  /// A path in a build statement. Most paths contain no $-escapes; those
-  /// are kept as a StringPiece into the lexer's input instead of as an
-  /// EvalString, which is much cheaper.
-  struct EdgePath {
-    StringPiece plain_;   // Only valid if eval_index_ < 0.
-    int eval_index_;      // Index into evals_, or -1.
-    bool is_canonical_;   // Only valid if eval_index_ < 0.
-  };
-
   /// Reads paths into |paths| until there are no more paths.
   bool ReadEdgePaths(std::vector<EdgePath>* paths, std::string* err);
 
   /// Evaluates and canonicalizes |edge_path|. |path| points either into
   /// the lexer's input or into |scratch|.
-  bool EvaluateEdgePath(const EdgePath& edge_path, Env* env,
+  bool EvaluateEdgePath(const EdgePath& edge_path,
+                        const std::vector<EvalString>& evals, Env* env,
                         std::string* scratch, StringPiece* path,
                         uint64_t* slash_bits, std::string* err);
 
