@@ -933,10 +933,12 @@ bool Builder::FinishCommand(BuildResult::CommandCompleted& result,
   // to filter /showIncludes output, even on compile failure) and
   // extraction itself can fail, which makes the command fail from a
   // build perspective.
+  // In a dry run, the command didn't run, so there is nothing to extract
+  // (and no depfile to delete).
   vector<Node*> deps_nodes;
   string deps_type = edge->GetBinding("deps");
   const string deps_prefix = edge->GetBinding("msvc_deps_prefix");
-  if (!deps_type.empty()) {
+  if (!deps_type.empty() && !config_.dry_run) {
     string extract_err;
     if (!ExtractDeps(result, deps_type, deps_prefix, &deps_nodes,
                      &extract_err) &&
@@ -1009,7 +1011,8 @@ bool Builder::FinishCommand(BuildResult::CommandCompleted& result,
       disk_interface_->RemoveFile(rspfile);
   }
 
-  if (scan_.build_log()) {
+  // In a dry run, the log isn't written, so don't evaluate the command for it.
+  if (scan_.build_log() && !config_.dry_run) {
     if (!scan_.build_log()->RecordCommand(
             edge, static_cast<int>(start_time_millis),
             static_cast<int>(end_time_millis), record_mtime)) {
