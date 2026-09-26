@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <string.h>
 #ifndef _WIN32
+#include <sys/mman.h>
 #include <unistd.h>
 #elif defined(_MSC_VER) && (_MSC_VER < 1900)
 typedef __int32 int32_t;
@@ -48,6 +49,16 @@ static constexpr size_t kMaxRecordSize = (1 << 19) - 1;
 
 DepsLog::~DepsLog() {
   Close();
+}
+
+DepsLog::LoadedLog::~LoadedLog() {
+#ifndef _WIN32
+  if (mapped) {
+    munmap(const_cast<char*>(data), size);
+    return;
+  }
+#endif
+  delete[] data;
 }
 
 bool DepsLog::OpenForWrite(const string& path, string* err) {
@@ -186,13 +197,34 @@ LoadStatus DepsLog::Load(const string& path, State* state, string* err) {
     fclose(f);
     return LOAD_ERROR;
   }
-  std::unique_ptr<char[]> log(new char[log_size + 1]);
-  log_size = fread(log.get(), 1, log_size, f);
-  // Like when reading record by record, a read error means that everything
-  // up to the error is used, and that the rest is dropped below.
-  int read_errno = ferror(f) ? errno : 0;
+  std::unique_ptr<LoadedLog> log(new LoadedLog);
+  int read_errno = 0;
+#ifndef _WIN32
+  // Map the file instead of copying it: most deps records are never used,
+  // see LoadDeps(). The mapping is private and read-only, so that appending
+  // to the file later doesn't affect it.
+  if (log_size > 0) {
+    void* map = mmap(NULL, log_size, PROT_READ, MAP_PRIVATE, fileno(f), 0);
+    if (map != MAP_FAILED) {
+      // The index pass below touches every page.
+      madvise(map, log_size, MADV_WILLNEED);
+      log->data = static_cast<const char*>(map);
+      log->size = log_size;
+      log->mapped = true;
+    }
+  }
+#endif
+  if (!log->mapped) {
+    char* buffer = new char[log_size + 1];
+    log->data = buffer;
+    log->size = fread(buffer, 1, log_size, f);
+    // Like when reading record by record, a read error means that everything
+    // up to the error is used, and that the rest is dropped below.
+    read_errno = ferror(f) ? errno : 0;
+  }
   fclose(f);
-  const char* const data = log.get();
+  log_size = log->size;
+  const char* const data = log->data;
 
   const size_t kHeaderSize = kFileSignatureSize + 4;
   int32_t version = 0;
@@ -350,7 +382,7 @@ void DepsLog::LoadDeps(int id) {
   if (id >= (int)unloaded_deps_.size() || unloaded_deps_[id] == 0)
     return;
   // Load() has checked that the record is valid.
-  const char* record = loaded_log_.get() + unloaded_deps_[id];
+  const char* record = loaded_log_->data + unloaded_deps_[id];
   unloaded_deps_[id] = 0;
   unsigned size;
   memcpy(&size, record - sizeof(size), sizeof(size));
