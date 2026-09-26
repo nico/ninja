@@ -135,7 +135,14 @@ struct DepsLog {
   /// Maps id -> deps of that id.
   std::vector<Deps*> deps_;
   /// The contents of the log file, if there are ids in unloaded_deps_.
-  std::unique_ptr<char[]> loaded_log_;
+  /// mmap()ed where possible, since most of it is never looked at.
+  struct LoadedLog {
+    ~LoadedLog();
+    const char* data = nullptr;
+    size_t size = 0;
+    bool mapped = false;
+  };
+  std::unique_ptr<LoadedLog> loaded_log_;
   /// Maps id -> offset in loaded_log_ of the deps record for that id that
   /// hasn't been turned into an entry in deps_ yet. 0 if there is none.
   std::vector<size_t> unloaded_deps_;
