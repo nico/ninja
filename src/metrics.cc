@@ -18,6 +18,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <errno.h>
+#include <inttypes.h>
+#include <stdio.h>
+#include <string.h>
+
 #include <algorithm>
 #include <chrono>
 
@@ -66,8 +71,10 @@ ScopedMetric::~ScopedMetric() {
   metric_->count++;
   // Leave in the timer's natural frequency to avoid paying the conversion cost
   // on every measurement.
-  int64_t dt = HighResTimer() - start_;
-  metric_->sum += dt;
+  int64_t now = HighResTimer();
+  metric_->sum += now - start_;
+  if (g_metrics->trace_enabled())
+    g_metrics->AddTraceEvent(metric_, start_, now);
 }
 
 Metric* Metrics::NewMetric(const string& name) {
@@ -97,6 +104,42 @@ void Metrics::Report() {
     printf("%-*s\t%-6d\t%-8.1f\t%.1f\n", width, metric->name.c_str(),
            metric->count, avg, total);
   }
+}
+
+void Metrics::AddTraceEvent(const Metric* metric, int64_t start,
+                            int64_t end) {
+  TraceEvent event = { metric, start, end };
+  trace_.push_back(event);
+}
+
+bool Metrics::WriteTrace(const string& path, string* err) {
+  FILE* f = fopen(path.c_str(), "w");
+  if (!f) {
+    *err = strerror(errno);
+    return false;
+  }
+  // Timestamps are relative to the earliest event, so that they are small.
+  int64_t origin = 0;
+  for (size_t i = 0; i < trace_.size(); ++i) {
+    if (i == 0 || trace_[i].start < origin)
+      origin = trace_[i].start;
+  }
+  fputs("[", f);
+  for (size_t i = 0; i < trace_.size(); ++i) {
+    const TraceEvent& event = trace_[i];
+    // Metric names are known strings that don't need escaping.
+    fprintf(f, "%s{\"name\":\"%s\",\"ph\":\"X\",\"ts\":%" PRId64
+            ",\"dur\":%" PRId64 ",\"pid\":1,\"tid\":1}",
+            i == 0 ? "\n" : ",\n", event.metric->name.c_str(),
+            TimerToMicros(event.start - origin),
+            TimerToMicros(event.end - event.start));
+  }
+  fputs("\n]\n", f);
+  if (fclose(f) != 0) {
+    *err = strerror(errno);
+    return false;
+  }
+  return true;
 }
 
 double Stopwatch::Elapsed() const {

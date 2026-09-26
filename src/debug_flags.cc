@@ -28,3 +28,5 @@ bool g_keep_rsp = false;
 bool g_experimental_statcache = true;
 
 bool g_serial_parse = false;
+
+bool g_print_stats = false;

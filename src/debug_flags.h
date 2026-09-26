@@ -30,4 +30,7 @@ extern bool g_experimental_statcache;
 
 extern bool g_serial_parse;
 
+/// Set by `-d stats`: print metrics at exit.
+extern bool g_print_stats;
+
 #endif // NINJA_EXPLAIN_H_

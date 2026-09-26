@@ -663,6 +663,7 @@ if gtest_src_dir:
         'json_test',
         'lexer_test',
         'manifest_parser_test',
+        'metrics_test',
         'ninja_test',
         'state_test',
         'string_piece_util_test',
