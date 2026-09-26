@@ -77,15 +77,11 @@ struct Lexer {
   /// Read a path (complete with $escapes).
   /// Returns false only on error, returned path may be empty if a delimiter
   /// (space, newline) is hit.
-  bool ReadPath(EvalString* path, std::string* err) {
-    return ReadEvalString(path, true, err);
-  }
+  bool ReadPath(EvalString* path, std::string* err);
 
   /// Read the value side of a var = value line (complete with $escapes).
   /// Returns false only on error.
-  bool ReadVarValue(EvalString* value, std::string* err) {
-    return ReadEvalString(value, false, err);
-  }
+  bool ReadVarValue(EvalString* value, std::string* err);
 
   /// Construct an error message with context.
   bool Error(const std::string& message, std::string* err);
@@ -98,8 +94,9 @@ private:
   /// Skip past whitespace (called after each read token/ident/etc.).
   void EatWhitespace();
 
-  /// Read a $-escaped string.
-  bool ReadEvalString(EvalString* eval, bool path, std::string* err);
+  /// Read a $-escape at |*pos| (used by ReadPath() and ReadVarValue()),
+  /// adding the result to |eval|. Advances |*pos| past it.
+  bool ReadEscape(const char** pos, EvalString* eval, std::string* err);
 
   StringPiece filename_;
   StringPiece input_;

@@ -210,76 +210,25 @@ bool Lexer::ReadIdent(string* out) {
   return true;
 }
 
-bool Lexer::ReadEvalString(EvalString* eval, bool path, string* err) {
+bool Lexer::ReadPath(EvalString* path, string* err) {
   const char* p = ofs_;
-  const char* q;
   const char* start;
   for (;;) {
     start = p;
     /*!re2c
     [^$ :\r\n|\000]+ {
-      eval->AddText(StringPiece(start, p - start));
+      path->AddText(StringPiece(start, p - start));
       continue;
     }
-    "\r\n" {
-      if (path)
-        p = start;
+    "\r\n" | [ :|\n] {
+      p = start;
       break;
     }
-    [ :|\n] {
-      if (path) {
-        p = start;
-        break;
-      } else {
-        if (*start == '\n')
-          break;
-        eval->AddText(StringPiece(start, 1));
-        continue;
-      }
-    }
-    "$$" {
-      eval->AddText(StringPiece("$", 1));
+    "$" {
+      p = start;
+      if (!ReadEscape(&p, path, err))
+        return false;
       continue;
-    }
-    "$ " {
-      eval->AddText(StringPiece(" ", 1));
-      continue;
-    }
-    "$\r\n"[ ]* {
-      continue;
-    }
-    "$\n"[ ]* {
-      continue;
-    }
-    "${"varname"}" {
-      eval->AddSpecial(StringPiece(start + 2, p - start - 3));
-      continue;
-    }
-    "$"simple_varname {
-      eval->AddSpecial(StringPiece(start + 1, p - start - 1));
-      continue;
-    }
-    "$:" {
-      eval->AddText(StringPiece(":", 1));
-      continue;
-    }
-    "$^" {
-      if (!newline_version_checked_)
-      {
-        if ((manifest_version_major < kMinNewlineEscapeVersionMajor) ||
-            (manifest_version_major == kMinNewlineEscapeVersionMajor &&
-             manifest_version_minor < kMinNewlineEscapeVersionMinor))
-        {
-          return Error("using $^ escape requires specifying 'ninja_required_version' with version greater or equal 1.14", err);
-        }
-        newline_version_checked_ = true;
-      }
-      eval->AddText(StringPiece("\n", 1));
-      continue;
-    }
-    "$". {
-      last_token_ = start;
-      return Error("bad $-escape (literal $ must be written as $$)", err);
     }
     nul {
       last_token_ = start;
@@ -293,8 +242,103 @@ bool Lexer::ReadEvalString(EvalString* eval, bool path, string* err) {
   }
   last_token_ = start;
   ofs_ = p;
-  if (path)
-    EatWhitespace();
-  // Non-path strings end in newlines, so there's no whitespace to eat.
+  EatWhitespace();
+  return true;
+}
+
+bool Lexer::ReadVarValue(EvalString* value, string* err) {
+  const char* p = ofs_;
+  const char* start;
+  for (;;) {
+    start = p;
+    /*!re2c
+    [^$\r\n\000]+ {
+      value->AddText(StringPiece(start, p - start));
+      continue;
+    }
+    "\r\n" | "\n" {
+      break;
+    }
+    "$" {
+      p = start;
+      if (!ReadEscape(&p, value, err))
+        return false;
+      continue;
+    }
+    nul {
+      last_token_ = start;
+      return Error("unexpected EOF", err);
+    }
+    [^] {
+      last_token_ = start;
+      return Error(DescribeLastError(), err);
+    }
+    */
+  }
+  last_token_ = start;
+  ofs_ = p;
+  // Values end in newlines, so there's no whitespace to eat.
+  return true;
+}
+
+bool Lexer::ReadEscape(const char** pos, EvalString* eval, string* err) {
+  const char* p = *pos;
+  const char* q;
+  const char* start = p;
+  for (;;) {
+    /*!re2c
+    "$$" {
+      eval->AddText(StringPiece("$", 1));
+      break;
+    }
+    "$ " {
+      eval->AddText(StringPiece(" ", 1));
+      break;
+    }
+    "$\r\n"[ ]* {
+      break;
+    }
+    "$\n"[ ]* {
+      break;
+    }
+    "${"varname"}" {
+      eval->AddSpecial(StringPiece(start + 2, p - start - 3));
+      break;
+    }
+    "$"simple_varname {
+      eval->AddSpecial(StringPiece(start + 1, p - start - 1));
+      break;
+    }
+    "$:" {
+      eval->AddText(StringPiece(":", 1));
+      break;
+    }
+    "$^" {
+      if (!newline_version_checked_)
+      {
+        if ((manifest_version_major < kMinNewlineEscapeVersionMajor) ||
+            (manifest_version_major == kMinNewlineEscapeVersionMajor &&
+             manifest_version_minor < kMinNewlineEscapeVersionMinor))
+        {
+          return Error("using $^ escape requires specifying 'ninja_required_version' with version greater or equal 1.14", err);
+        }
+        newline_version_checked_ = true;
+      }
+      eval->AddText(StringPiece("\n", 1));
+      break;
+    }
+    "$". {
+      last_token_ = start;
+      return Error("bad $-escape (literal $ must be written as $$)", err);
+    }
+    [^] {
+      // Only "$" at the end of the input gets here: the callers only call
+      // this at a "$".
+      last_token_ = start;
+      return Error("unexpected EOF", err);
+    }
+    */
+  }
+  *pos = p;
   return true;
 }
