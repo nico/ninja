@@ -188,7 +188,14 @@ struct Edge {
   Edge() = default;
 
   /// Return true if all inputs' in-edges are ready.
-  bool AllInputsReady() const;
+  /// Return true if all inputs' in-edges are ready. Only meant to be called
+  /// while building: once an input is ready, it stays ready (see
+  /// ResetInputsReadyScan()), so this continues where it left off, which keeps
+  /// it from taking quadratic time for edges with many inputs.
+  bool AllInputsReady();
+  /// Call after an input might have become unready again (i.e. after the
+  /// dirty state of inputs was recomputed), or after inputs_ changed.
+  void ResetInputsReadyScan() { inputs_ready_up_to_ = 0; }
 
   /// Expand all variables in a command and return it as a string.
   /// If incl_rsp_file is enabled, the string will also contain the
@@ -232,6 +239,8 @@ struct Edge {
 
   VisitMark mark_ = VisitNone;
   bool outputs_ready_ = false;
+  /// Number of inputs that AllInputsReady() found ready last time.
+  size_t inputs_ready_up_to_ = 0;
   bool deps_loaded_ = false;
   bool deps_missing_ = false;
   bool generated_by_dep_loader_ = false;

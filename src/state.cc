@@ -193,6 +193,7 @@ void State::Reset() {
     i->second->ResetState();
   for (vector<Edge*>::iterator e = edges_.begin(); e != edges_.end(); ++e) {
     (*e)->outputs_ready_ = false;
+    (*e)->ResetInputsReadyScan();
     (*e)->deps_loaded_ = false;
     (*e)->mark_ = Edge::VisitNone;
   }
