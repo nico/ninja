@@ -707,6 +707,7 @@ bool Builder::AlreadyUpToDate() const {
 }
 
 ExitStatus Builder::Build(string* err) {
+  METRIC_RECORD("Build");
   assert(!AlreadyUpToDate());
   plan_.PrepareQueue();
 

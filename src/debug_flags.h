@@ -28,4 +28,8 @@ extern bool g_keep_rsp;
 
 extern bool g_experimental_statcache;
 
+
+/// Set by `-d stats`: print metrics at exit.
+extern bool g_print_stats;
+
 #endif // NINJA_EXPLAIN_H_

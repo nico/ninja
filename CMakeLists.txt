@@ -287,6 +287,7 @@ if(BUILD_TESTING)
     src/json_test.cc
     src/lexer_test.cc
     src/manifest_parser_test.cc
+    src/metrics_test.cc
     src/missing_deps_test.cc
     src/ninja_test.cc
     src/state_test.cc

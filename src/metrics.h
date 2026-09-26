@@ -52,8 +52,24 @@ struct Metrics {
   /// Print a summary report to stdout.
   void Report();
 
+  /// Record every measurement, not just the totals, for WriteTrace().
+  void EnableTrace() { trace_enabled_ = true; }
+  bool trace_enabled() const { return trace_enabled_; }
+  void AddTraceEvent(const Metric* metric, int64_t start, int64_t end);
+
+  /// Write all recorded measurements to |path|, in Chrome's JSON trace event
+  /// format (viewable in chrome://tracing, Perfetto and speedscope).
+  bool WriteTrace(const std::string& path, std::string* err);
+
 private:
+  struct TraceEvent {
+    const Metric* metric;
+    int64_t start, end;  // In HighResTimer() units.
+  };
+
   std::vector<Metric*> metrics_;
+  bool trace_enabled_ = false;
+  std::vector<TraceEvent> trace_;
 };
 
 /// Get the current time as relative to some epoch.

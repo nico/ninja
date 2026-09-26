@@ -310,6 +310,7 @@ void Node::UpdatePhonyMtime(TimeStamp mtime) {
 bool DependencyScan::RecomputeDirty(Node* initial_node,
                                     std::vector<Node*>* validation_nodes,
                                     string* err) {
+  METRIC_RECORD("RecomputeDirty");
   std::vector<Node*> stack;
   std::vector<Node*> new_validation_nodes;
 

@@ -1464,6 +1464,8 @@ bool DebugEnable(const string& name) {
   if (name == "list") {
     printf("debugging modes:\n"
 "  stats        print operation counts/timing info\n"
+"  trace        write timings of what ninja does to ninja_trace.json,\n"
+"               in Chrome's trace event format\n"
 "  explain      explain what caused a command to execute\n"
 "  keepdepfile  don't delete depfiles after they're read by ninja\n"
 "  keeprsp      don't delete @response files on success\n"
@@ -1473,7 +1475,14 @@ bool DebugEnable(const string& name) {
 "multiple modes can be enabled via -d FOO -d BAR\n");
     return false;
   } else if (name == "stats") {
-    g_metrics = new Metrics;
+    if (!g_metrics)
+      g_metrics = new Metrics;
+    g_print_stats = true;
+    return true;
+  } else if (name == "trace") {
+    if (!g_metrics)
+      g_metrics = new Metrics;
+    g_metrics->EnableTrace();
     return true;
   } else if (name == "explain") {
     g_explaining = true;
@@ -1490,7 +1499,7 @@ bool DebugEnable(const string& name) {
   } else {
     const char* suggestion =
         SpellcheckString(name.c_str(),
-                         "stats", "explain", "keepdepfile", "keeprsp",
+                         "stats", "trace", "explain", "keepdepfile", "keeprsp",
                          "nostatcache", NULL);
     if (suggestion) {
       Error("unknown debug setting '%s', did you mean '%s'?",
@@ -2040,8 +2049,16 @@ NORETURN void real_main(int argc, char** argv) {
     ninja.ParsePreviousElapsedTimes();
 
     ExitStatus result = ninja.RunBuild(argc, argv, status);
-    if (g_metrics)
+    if (g_print_stats)
       ninja.DumpMetrics();
+    if (g_metrics && g_metrics->trace_enabled()) {
+      const char* kTracePath = "ninja_trace.json";
+      string err;
+      if (g_metrics->WriteTrace(kTracePath, &err))
+        Info("wrote %s", kTracePath);
+      else
+        Error("writing %s: %s", kTracePath, err.c_str());
+    }
     exit(result);
   }
 
