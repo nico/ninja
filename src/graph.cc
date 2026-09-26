@@ -599,10 +599,10 @@ bool DependencyScan::LoadDyndeps(Node* node, DyndepFile* ddf,
   return dyndep_loader_.LoadDyndeps(node, ddf, err);
 }
 
-bool Edge::AllInputsReady() const {
-  for (vector<Node*>::const_iterator i = inputs_.begin();
-       i != inputs_.end(); ++i) {
-    if ((*i)->in_edge() && !(*i)->in_edge()->outputs_ready())
+bool Edge::AllInputsReady() {
+  for (; inputs_ready_up_to_ < inputs_.size(); ++inputs_ready_up_to_) {
+    Node* input = inputs_[inputs_ready_up_to_];
+    if (input->in_edge() && !input->in_edge()->outputs_ready())
       return false;
   }
   return true;

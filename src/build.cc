@@ -383,12 +383,14 @@ bool Plan::DyndepsLoaded(DependencyScan* scan,
     }
   }
 
-  // See if any encountered edges are now ready.
+  // See if any encountered edges are now ready. Edges with dyndep
+  // information may have gained inputs, so check them from scratch.
   for (set<Edge*>::iterator wi = dyndep_walk.begin();
        wi != dyndep_walk.end(); ++wi) {
     map<Edge*, Want>::iterator want_e = want_.find(*wi);
     if (want_e == want_.end())
       continue;
+    (*wi)->ResetInputsReadyScan();
     if (!EdgeMaybeReady(want_e, err))
       return false;
   }
@@ -428,6 +430,11 @@ bool Plan::RefreshDyndepDependents(DependencyScan* scan,
         }
       }
     }
+    // The dirty state of the inputs of this node's edge may have changed,
+    // so its readiness has to be checked from scratch.
+    if (Edge* in_edge = n->in_edge())
+      in_edge->ResetInputsReadyScan();
+
     if (!n->dirty())
       continue;
 
