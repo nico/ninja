@@ -44,11 +44,20 @@ struct EvalString {
   /// @return The string with variables not expanded.
   std::string Unparse() const;
 
-  void Clear() { parsed_.clear(); single_token_.clear(); }
+  void Clear() {
+    parsed_.clear();
+    single_token_.clear();
+    is_canonical_path_ = false;
+  }
   bool empty() const { return parsed_.empty() && single_token_.empty(); }
 
   void AddText(StringPiece text);
   void AddSpecial(StringPiece text);
+  /// Like AddText(), for text that the lexer knows to be a path that
+  /// CanonicalizePath() would leave alone.
+  void AddCanonicalPath(StringPiece text);
+  /// True if this consists only of a path added with AddCanonicalPath().
+  bool is_canonical_path() const { return is_canonical_path_; }
 
   /// Construct a human-readable representation of the parsed state,
   /// for use in tests.
@@ -64,6 +73,7 @@ private:
   // what is a common case. If parsed_ is nonempty, then this value
   // must be ignored.
   std::string single_token_;
+  bool is_canonical_path_ = false;
 };
 
 /// An invocable build command and associated metadata (description, etc.).

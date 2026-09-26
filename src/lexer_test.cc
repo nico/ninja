@@ -16,6 +16,7 @@
 
 #include "eval_env.h"
 #include "test.h"
+#include "util.h"
 
 using namespace std;
 
@@ -37,6 +38,59 @@ TEST(Lexer, ReadEvalStringEscapes) {
   EXPECT_EQ("", err);
   EXPECT_EQ("[ $ab c: cde]",
             eval.Serialize());
+}
+
+TEST(Lexer, ReadPathCanonical) {
+  // If the lexer says that a path is canonical, CanonicalizePath() must not
+  // change it. Check all combinations of some interesting components.
+  const char* kComponents[] = { "", ".", "..", "a", ".a", "a.", "..a", "bc" };
+  const size_t n = sizeof(kComponents) / sizeof(kComponents[0]);
+  int num_canonical = 0;
+  for (size_t i = 0; i < n * n * n * n; ++i) {
+    string in = string(kComponents[i % n]) + "/" + kComponents[i / n % n] +
+                "/" + kComponents[i / n / n % n] + "/" +
+                kComponents[i / n / n / n];
+    // Also test paths with fewer components and without trailing slashes.
+    while (!in.empty()) {
+      string input = in + "\n";
+      Lexer lexer(input.c_str());
+      EvalString eval;
+      string err;
+      EXPECT_TRUE(lexer.ReadPath(&eval, &err)) << in << ": " << err;
+      EXPECT_EQ("[" + in + "]", eval.Serialize());
+      if (eval.is_canonical_path()) {
+        string canonical = in;
+        uint64_t slash_bits;
+        CanonicalizePath(&canonical, &slash_bits);
+        EXPECT_EQ(in, canonical);
+        EXPECT_EQ(0u, slash_bits);
+        ++num_canonical;
+      }
+      in.resize(in.size() - 1);
+    }
+  }
+  EXPECT_GT(num_canonical, 100);
+
+  const char* kCanonical[] = { "a/b", "../../a", "/a/b", ".a/..b", "a" };
+  for (const char* path : kCanonical) {
+    string input = string(path) + "\n";
+    Lexer lexer(input.c_str());
+    EvalString eval;
+    string err;
+    EXPECT_TRUE(lexer.ReadPath(&eval, &err)) << path << ": " << err;
+    EXPECT_TRUE(eval.is_canonical_path()) << path;
+  }
+  // Escapes, variables, backslashes and paths that need canonicalization.
+  const char* kNotCanonical[] = { "a$ b", "a$var", "a/./b", "a//b", "./a",
+                                  "a/", "a/..", "/", "..", "a\\b" };
+  for (const char* path : kNotCanonical) {
+    string input = string(path) + "\n";
+    Lexer lexer(input.c_str());
+    EvalString eval;
+    string err;
+    EXPECT_TRUE(lexer.ReadPath(&eval, &err)) << path << ": " << err;
+    EXPECT_FALSE(eval.is_canonical_path()) << path;
+  }
 }
 
 TEST(Lexer, ReadIdent) {

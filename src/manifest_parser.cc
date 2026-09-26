@@ -319,7 +319,10 @@ bool ManifestParser::ParseEdge(string* err) {
     paths_[i].Evaluate(env, &path);
     if (path.empty())
       return lexer_.Error("empty path", err);
-    CanonicalizePath(&path, &slash_bits);
+    if (paths_[i].is_canonical_path())
+      slash_bits = 0;
+    else
+      CanonicalizePath(&path, &slash_bits);
     if (!state_->AddOut(edge, path, slash_bits, err)) {
       lexer_.Error(std::string(*err), err);
       return false;
@@ -340,7 +343,10 @@ bool ManifestParser::ParseEdge(string* err) {
     paths_[i].Evaluate(env, &path);
     if (path.empty())
       return lexer_.Error("empty path", err);
-    CanonicalizePath(&path, &slash_bits);
+    if (paths_[i].is_canonical_path())
+      slash_bits = 0;
+    else
+      CanonicalizePath(&path, &slash_bits);
     state_->AddIn(edge, path, slash_bits);
   }
   edge->implicit_deps_ = implicit;
@@ -351,7 +357,10 @@ bool ManifestParser::ParseEdge(string* err) {
     paths_[i].Evaluate(env, &path);
     if (path.empty())
       return lexer_.Error("empty path", err);
-    CanonicalizePath(&path, &slash_bits);
+    if (paths_[i].is_canonical_path())
+      slash_bits = 0;
+    else
+      CanonicalizePath(&path, &slash_bits);
     state_->AddValidation(edge, path, slash_bits);
   }
 

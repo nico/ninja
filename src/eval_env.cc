@@ -130,6 +130,7 @@ void EvalString::Evaluate(Env* env, string* result) const {
 }
 
 void EvalString::AddText(StringPiece text) {
+  is_canonical_path_ = false;
   if (parsed_.empty()) {
     single_token_.append(text.begin(), text.end());
   } else if (!parsed_.empty() && parsed_.back().second == RAW) {
@@ -139,7 +140,14 @@ void EvalString::AddText(StringPiece text) {
   }
 }
 
+void EvalString::AddCanonicalPath(StringPiece text) {
+  bool was_empty = empty();
+  AddText(text);
+  is_canonical_path_ = was_empty;
+}
+
 void EvalString::AddSpecial(StringPiece text) {
+  is_canonical_path_ = false;
   if (parsed_.empty() && !single_token_.empty()) {
     // Going from one to two tokens, so we can no longer apply
     // our single_token_ optimization and need to push everything

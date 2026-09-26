@@ -136,6 +136,13 @@ Lexer::Token Lexer::ReadToken() {
     nul = "\000";
     simple_varname = [a-zA-Z0-9_-]+;
     varname = [a-zA-Z0-9_.-]+;
+    // A path that CanonicalizePath() would leave alone: any number of
+    // leading "../", then components that aren't empty, "." or "..", and no
+    // trailing separator. (Backslashes are left to CanonicalizePath() too,
+    // since it computes slash_bits for them on Windows.)
+    pathchar = [^$ :|\r\n/\\\000];
+    component = [^$ :|\r\n/\\.\000] pathchar* | "." [^$ :|\r\n/\\.\000] pathchar* | ".." pathchar+;
+    canonical_path = ("/" | ("../")*) component ("/" component)*;
 
     [ ]*"#"[^\000\n]*"\n" { continue; }
     [ ]*"\r\n" { token = NEWLINE;  break; }
@@ -216,6 +223,10 @@ bool Lexer::ReadPath(EvalString* path, string* err) {
   for (;;) {
     start = p;
     /*!re2c
+    canonical_path {
+      path->AddCanonicalPath(StringPiece(start, p - start));
+      continue;
+    }
     [^$ :\r\n|\000]+ {
       path->AddText(StringPiece(start, p - start));
       continue;
