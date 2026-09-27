@@ -47,17 +47,22 @@ struct EvalString {
   void Clear() {
     parsed_.clear();
     single_token_.clear();
-    is_canonical_path_ = false;
+    canonical_path_ = StringPiece();
   }
-  bool empty() const { return parsed_.empty() && single_token_.empty(); }
+  bool empty() const {
+    return parsed_.empty() && single_token_.empty() && canonical_path_.empty();
+  }
 
   void AddText(StringPiece text);
   void AddSpecial(StringPiece text);
   /// Like AddText(), for text that the lexer knows to be a path that
-  /// CanonicalizePath() would leave alone.
+  /// CanonicalizePath() would leave alone. Unlike AddText(), this doesn't
+  /// copy |text| if it's the whole string: |text| must stay valid while this
+  /// EvalString is in use.
   void AddCanonicalPath(StringPiece text);
-  /// True if this consists only of a path added with AddCanonicalPath().
-  bool is_canonical_path() const { return is_canonical_path_; }
+  /// If this consists only of a path added with AddCanonicalPath(), returns
+  /// that path (its evaluated value), else an empty StringPiece.
+  StringPiece canonical_path() const { return canonical_path_; }
 
   /// Construct a human-readable representation of the parsed state,
   /// for use in tests.
@@ -73,7 +78,12 @@ private:
   // what is a common case. If parsed_ is nonempty, then this value
   // must be ignored.
   std::string single_token_;
-  bool is_canonical_path_ = false;
+
+  // Set instead of single_token_ if the whole string is a canonical path;
+  // points into the lexer's input. Copied into single_token_ by
+  // MaterializeCanonicalPath() if more is added.
+  StringPiece canonical_path_;
+  void MaterializeCanonicalPath();
 };
 
 /// An invocable build command and associated metadata (description, etc.).

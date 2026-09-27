@@ -316,14 +316,17 @@ bool ManifestParser::ParseEdge(string* err) {
 
   edge->outputs_.reserve(num_outs);
   for (size_t i = 0; i < num_outs; ++i) {
-    paths_[i].Evaluate(env, &path);
-    if (path.empty())
-      return lexer_.Error("empty path", err);
-    if (paths_[i].is_canonical_path())
-      slash_bits = 0;
-    else
+    StringPiece canonical = paths_[i].canonical_path();
+    if (canonical.empty()) {
+      paths_[i].Evaluate(env, &path);
+      if (path.empty())
+        return lexer_.Error("empty path", err);
       CanonicalizePath(&path, &slash_bits);
-    if (!state_->AddOut(edge, path, slash_bits, err)) {
+      canonical = path;
+    } else {
+      slash_bits = 0;
+    }
+    if (!state_->AddOut(edge, canonical, slash_bits, err)) {
       lexer_.Error(std::string(*err), err);
       return false;
     }
@@ -340,28 +343,34 @@ bool ManifestParser::ParseEdge(string* err) {
 
   edge->inputs_.reserve(num_ins);
   for (size_t i = num_outs; i < num_outs + num_ins; ++i) {
-    paths_[i].Evaluate(env, &path);
-    if (path.empty())
-      return lexer_.Error("empty path", err);
-    if (paths_[i].is_canonical_path())
-      slash_bits = 0;
-    else
+    StringPiece canonical = paths_[i].canonical_path();
+    if (canonical.empty()) {
+      paths_[i].Evaluate(env, &path);
+      if (path.empty())
+        return lexer_.Error("empty path", err);
       CanonicalizePath(&path, &slash_bits);
-    state_->AddIn(edge, path, slash_bits);
+      canonical = path;
+    } else {
+      slash_bits = 0;
+    }
+    state_->AddIn(edge, canonical, slash_bits);
   }
   edge->implicit_deps_ = implicit;
   edge->order_only_deps_ = order_only;
 
   edge->validations_.reserve(num_validations);
   for (size_t i = num_outs + num_ins; i < n; ++i) {
-    paths_[i].Evaluate(env, &path);
-    if (path.empty())
-      return lexer_.Error("empty path", err);
-    if (paths_[i].is_canonical_path())
-      slash_bits = 0;
-    else
+    StringPiece canonical = paths_[i].canonical_path();
+    if (canonical.empty()) {
+      paths_[i].Evaluate(env, &path);
+      if (path.empty())
+        return lexer_.Error("empty path", err);
       CanonicalizePath(&path, &slash_bits);
-    state_->AddValidation(edge, path, slash_bits);
+      canonical = path;
+    } else {
+      slash_bits = 0;
+    }
+    state_->AddValidation(edge, canonical, slash_bits);
   }
 
   if (options_.phony_cycle_action_ == kPhonyCycleActionWarn &&

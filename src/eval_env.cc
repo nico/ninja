@@ -115,6 +115,10 @@ string EvalString::Evaluate(Env* env) const {
 }
 
 void EvalString::Evaluate(Env* env, string* result) const {
+  if (!canonical_path_.empty()) {
+    result->assign(canonical_path_.str_, canonical_path_.len_);
+    return;
+  }
   if (parsed_.empty()) {
     result->assign(single_token_);
     return;
@@ -129,8 +133,15 @@ void EvalString::Evaluate(Env* env, string* result) const {
   }
 }
 
+void EvalString::MaterializeCanonicalPath() {
+  if (canonical_path_.empty())
+    return;
+  single_token_.assign(canonical_path_.str_, canonical_path_.len_);
+  canonical_path_ = StringPiece();
+}
+
 void EvalString::AddText(StringPiece text) {
-  is_canonical_path_ = false;
+  MaterializeCanonicalPath();
   if (parsed_.empty()) {
     single_token_.append(text.begin(), text.end());
   } else if (!parsed_.empty() && parsed_.back().second == RAW) {
@@ -141,13 +152,14 @@ void EvalString::AddText(StringPiece text) {
 }
 
 void EvalString::AddCanonicalPath(StringPiece text) {
-  bool was_empty = empty();
-  AddText(text);
-  is_canonical_path_ = was_empty;
+  if (empty())
+    canonical_path_ = text;
+  else
+    AddText(text);
 }
 
 void EvalString::AddSpecial(StringPiece text) {
-  is_canonical_path_ = false;
+  MaterializeCanonicalPath();
   if (parsed_.empty() && !single_token_.empty()) {
     // Going from one to two tokens, so we can no longer apply
     // our single_token_ optimization and need to push everything
@@ -159,7 +171,11 @@ void EvalString::AddSpecial(StringPiece text) {
 
 string EvalString::Serialize() const {
   string result;
-  if (parsed_.empty() && !single_token_.empty()) {
+  if (!canonical_path_.empty()) {
+    result.append("[");
+    result.append(canonical_path_.str_, canonical_path_.len_);
+    result.append("]");
+  } else if (parsed_.empty() && !single_token_.empty()) {
     result.append("[");
     result.append(single_token_);
     result.append("]");
@@ -177,7 +193,9 @@ string EvalString::Serialize() const {
 
 string EvalString::Unparse() const {
   string result;
-  if (parsed_.empty() && !single_token_.empty()) {
+  if (!canonical_path_.empty()) {
+    result.append(canonical_path_.str_, canonical_path_.len_);
+  } else if (parsed_.empty() && !single_token_.empty()) {
     result.append(single_token_.begin(), single_token_.end());
   } else {
     for (TokenList::const_iterator i = parsed_.begin();

@@ -58,7 +58,7 @@ TEST(Lexer, ReadPathCanonical) {
       string err;
       EXPECT_TRUE(lexer.ReadPath(&eval, &err)) << in << ": " << err;
       EXPECT_EQ("[" + in + "]", eval.Serialize());
-      if (eval.is_canonical_path()) {
+      if (!eval.canonical_path().empty()) {
         string canonical = in;
         uint64_t slash_bits;
         CanonicalizePath(&canonical, &slash_bits);
@@ -78,7 +78,7 @@ TEST(Lexer, ReadPathCanonical) {
     EvalString eval;
     string err;
     EXPECT_TRUE(lexer.ReadPath(&eval, &err)) << path << ": " << err;
-    EXPECT_TRUE(eval.is_canonical_path()) << path;
+    EXPECT_EQ(path, eval.canonical_path().AsString());
   }
   // Escapes, variables, backslashes and paths that need canonicalization.
   const char* kNotCanonical[] = { "a$ b", "a$var", "a/./b", "a//b", "./a",
@@ -89,7 +89,7 @@ TEST(Lexer, ReadPathCanonical) {
     EvalString eval;
     string err;
     EXPECT_TRUE(lexer.ReadPath(&eval, &err)) << path << ": " << err;
-    EXPECT_FALSE(eval.is_canonical_path()) << path;
+    EXPECT_TRUE(eval.canonical_path().empty()) << path;
   }
 }
 
